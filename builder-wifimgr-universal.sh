@@ -39,7 +39,7 @@ echo "CONFIG_BLK_DEV_NVME=y" >> target/linux/mediatek/filogic/config-6.12
 \cp -r ../my_files/luci-app-lite-watchdog/ feeds/luci/applications
 \cp -r ../my_files/luci-app-sms-tool-js-main/luci-app-sms-tool-js/ feeds/luci/applications
 
-git clone --depth 1 https://github.com/woziwrt/luci-app-wifimgr.git /tmp/luci-app-wifimgr
+git -c credential.helper= clone --depth 1 https://github.com/woziwrt/luci-app-wifimgr.git /tmp/luci-app-wifimgr
 \cp -r /tmp/luci-app-wifimgr feeds/luci/applications/luci-app-wifimgr
 
 mkdir -p files/etc/uci-defaults
