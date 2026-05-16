@@ -88,10 +88,18 @@ async function wizard_ap(radio_id, params) {
     const write = Object.assign({ encryption: enc }, params);
     delete write.radio_id;
 
+    // If this radio is part of an MLO AP, wifi reload would crash (EDCCA).
+    // Write UCI and reboot instead.
+    const mldsRes = await layer2.mld_get_all();
+    const mlds = (mldsRes && mldsRes.ok !== false) ? (Array.isArray(mldsRes) ? mldsRes : (mldsRes.data || [])) : [];
+    const isMloRadio = mlds.some(function(m) {
+        return m.mode === 'ap' && Array.isArray(m.radios) && m.radios.indexOf(radio_id) !== -1;
+    });
+
     const res = await layer2.iface_add(radio_id, 'ap', write);
     if (!res.ok) return { ok: false, sid: null, restartRequired: 'none', errors: res.errors || [] };
 
-    return { ok: true, sid: res.sid, restartRequired: 'wifi', errors: [] };
+    return { ok: true, sid: res.sid, restartRequired: isMloRadio ? 'reboot' : 'wifi', errors: [] };
 }
 
 // Wizard: MLO setup (multi-radio AP).

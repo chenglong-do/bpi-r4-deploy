@@ -544,7 +544,7 @@ function applyFlow(container, fn, onDone, lockFn) {
     var PHASE_LBL = { resetting: 'Stopping WiFi...', mld_setup: 'Enabling WiFi 7...', ready: 'Done' };
     function phaseLabel(phase, elapsed_s) {
         if (phase === 'starting') return elapsed_s > 15
-            ? 'DFS scan in progress (~60 s)...'
+            ? 'Starting interfaces, please wait...'
             : 'Starting interfaces...';
         return PHASE_LBL[phase] || 'Applying changes...';
     }
@@ -601,7 +601,7 @@ function applyFlow(container, fn, onDone, lockFn) {
             clearInterval(timer);
             if (lockFn) lockFn(true);
             progress.style.display = 'none';
-            container.appendChild(inlineErr('WiFi restart is taking longer than expected (DFS?) — check Networks tab. If nothing appeared, reboot.'));
+            container.appendChild(inlineErr('WiFi restart is taking longer than expected — check Networks tab. If nothing appeared, reboot.'));
         }, 240000);
 
     }).catch(function(e) {
@@ -667,6 +667,27 @@ function wizardAP(onDone) {
 
         // Advanced collapsible
         var radioSel  = selectEl([['radio0','2.4 GHz'],['radio1','5 GHz'],['radio2','6 GHz']], 'radio1');
+
+        // Disable radios at MBSSID limit: MLO AP link + existing legacy AP = 2 → adding 3rd via wifi reload crashes MCU
+        var _apAllBlocked = false;
+        (function() {
+            var mloApRadios = new Set();
+            (_data.mlds || []).filter(function(m) { return m.mode === 'ap'; }).forEach(function(m) {
+                (m.radios || []).forEach(function(r) { mloApRadios.add(r); });
+            });
+            Array.from(radioSel.options).forEach(function(opt) {
+                if (!mloApRadios.has(opt.value)) return;
+                var existingAps = (_data.ifaces || []).filter(function(i) {
+                    return !i.mlo && i.mode === 'ap' && Array.isArray(i.device) && i.device.indexOf(opt.value) !== -1;
+                }).length;
+                if (existingAps >= 1) {
+                    opt.disabled = true;
+                    opt.text += ' — at limit';
+                }
+            });
+            var firstFree = Array.from(radioSel.options).find(function(o) { return !o.disabled; });
+            if (firstFree) { radioSel.value = firstFree.value; } else { _apAllBlocked = true; }
+        })();
         var CHAN_OPTS  = {
             radio0: [['auto','auto'],['1','1'],['6','6'],['11','11']],
             radio1: [['auto','auto'],['36','36'],['40','40'],['44','44'],['48','48'],['52','52 (DFS)'],['56','56 (DFS)'],['60','60 (DFS)'],['64','64 (DFS)'],['100','100 (DFS)'],['104','104 (DFS)'],['108','108 (DFS)'],['112','112 (DFS)'],['116','116 (DFS)'],['120','120 (DFS)'],['124','124 (DFS)'],['128','128 (DFS)'],['132','132 (DFS)'],['136','136 (DFS)'],['140','140 (DFS)'],['144','144 (DFS)'],['149','149'],['153','153'],['157','157'],['161','161'],['165','165']],
@@ -677,8 +698,8 @@ function wizardAP(onDone) {
             radio1: [['auto','auto'],['20','20 MHz'],['40','40 MHz'],['80','80 MHz'],['160','160 MHz']],
             radio2: [['auto','auto'],['20','20 MHz'],['40','40 MHz'],['80','80 MHz'],['160','160 MHz'],['320','320 MHz']]
         };
-        var chanSel  = selectEl(CHAN_OPTS.radio1, 'auto');
-        var widthSel = selectEl(WIDTH_OPTS.radio1, 'auto');
+        var chanSel  = selectEl(CHAN_OPTS[radioSel.value]  || CHAN_OPTS.radio1,  'auto');
+        var widthSel = selectEl(WIDTH_OPTS[radioSel.value] || WIDTH_OPTS.radio1, 'auto');
         var ifaceSel = networkSel('lan');
         var isoIn    = checkbox(false);
         var hidIn    = checkbox(false);
@@ -714,9 +735,13 @@ function wizardAP(onDone) {
         body.appendChild(collapsible('wiz_ap_adv', 'Advanced parameters', function() { return advBody; }, false));
 
         var goBtn = btn('Add Network', null, function() {
+            if (_apAllBlocked) return;
             var ssid = ssidIn.value.trim();
             if (!ssid) { while(errDiv.firstChild) errDiv.removeChild(errDiv.firstChild); errDiv.appendChild(inlineErr('SSID is required')); return; }
             var rid = radioSel.value;
+            if (radioSel.options[radioSel.selectedIndex] && radioSel.options[radioSel.selectedIndex].disabled) {
+                errDiv.appendChild(inlineErr('Selected radio is at capacity — choose a different radio or remove an existing network first.')); return;
+            }
             var p = { ssid: ssid, encryption: encSel.value };
             if (passIn.value)   p.key     = passIn.value;
             if (isoIn.checked)   p.isolate = '1';
@@ -739,6 +764,11 @@ function wizardAP(onDone) {
             }, function() { close(); if (onDone) onDone(); }, setCloseable);
         });
 
+        if (_apAllBlocked) {
+            goBtn.disabled = true; goBtn.style.background = '#555'; goBtn.style.borderColor = '#444'; goBtn.style.cursor = 'not-allowed';
+            body.insertBefore(node('div', { style: 'color:#e53935;font-size:12px;margin-bottom:10px;padding:8px;background:#3a070744;border-radius:4px;border-left:3px solid #e53935' },
+                'All radios are at capacity — each MLO radio already has a network. Remove an existing network first.'), body.firstChild);
+        }
         body.appendChild(node('div', { style: 'margin-top:12px' }, goBtn));
         body.appendChild(applyDiv);
     });
@@ -774,6 +804,32 @@ function wizardMLO(onDone) {
             linkBtns[rid] = el;
             linkRow.appendChild(el);
         });
+
+        // Protection: disable link buttons for radios already in an MLO AP group
+        var _mloBlocked = false; var _mloBlockMsg = null;
+        (function() {
+            var usedInMlo = new Set();
+            (_data.mlds || []).forEach(function(m) {
+                (m.radios || []).forEach(function(r) { usedInMlo.add(r); });
+            });
+            ['radio0','radio1','radio2'].forEach(function(rid) {
+                if (!usedInMlo.has(rid)) return;
+                linkActive[rid] = false;
+                var el = linkBtns[rid]; var b2 = BANDS[rid];
+                el.disabled = true; el.onclick = null;
+                el.style.border = '1px solid #2a3a50'; el.style.background = 'none';
+                el.style.color = '#555'; el.style.cursor = 'not-allowed';
+                el.title = 'Already part of an MLO group — remove existing MLO first';
+            });
+            var free = ['radio0','radio1','radio2'].filter(function(r) { return !usedInMlo.has(r); }).length;
+            if (free < 2) {
+                _mloBlocked = true;
+                _mloBlockMsg = node('div', { style: 'color:#e53935;font-size:12px;margin-bottom:10px;padding:8px;background:#3a070744;border-radius:4px;border-left:3px solid #e53935' },
+                    free === 0 ? 'All radios are already part of an MLO group (AP or STA). Remove the existing MLO network first.'
+                               : 'Only 1 free radio — MLO requires at least 2. Remove an existing MLO network first.');
+            }
+        })();
+
         body.appendChild(formRow('Links', linkRow));
 
         // Advanced collapsible — per-link channel/width/TX, L3, interface, isolate
@@ -808,6 +864,7 @@ function wizardMLO(onDone) {
         var goBtn = btn('Create WiFi 7 Network', null, function() {
             var ssid = ssidIn.value.trim();
             if (!ssid) { body.appendChild(inlineErr('SSID is required')); return; }
+            if (_mloBlocked) return;
             var rids = ['radio0','radio1','radio2'].filter(function(r) { return linkActive[r]; });
             if (rids.length < 2) { body.appendChild(inlineErr('Select at least 2 bands')); return; }
             var p = { ssid: ssid, encryption: 'sae', network: ifaceSel._getValue() };
@@ -832,6 +889,10 @@ function wizardMLO(onDone) {
             }, function() { close(); if (onDone) onDone(); }, setCloseable);
         });
 
+        if (_mloBlocked) {
+            goBtn.disabled = true; goBtn.style.background = '#555'; goBtn.style.borderColor = '#444'; goBtn.style.cursor = 'not-allowed';
+            body.insertBefore(_mloBlockMsg, body.firstChild);
+        }
         body.appendChild(node('div', { style: 'margin-top:12px' }, goBtn));
         body.appendChild(applyDiv);
     });
@@ -848,8 +909,7 @@ function wizardStation(onDone) {
 
         var mloRow   = formRow('MLO', mloCb);
         var mloHint  = sp('WiFi 7 multi-band connection — requires an active MLO AP on the other router.', 'color:#555;font-size:11px;display:block;margin:-4px 0 4px');
-        var mloConflictNote = node('div', { style: 'color:#e53935;font-size:11px;margin-top:3px;display:none' },
-            'Cannot add MLO STA — a local MLO AP is active on the same radios. Remove it first (Networks tab).');
+        var mloConflictNote = node('div', { style: 'color:#e53935;font-size:11px;margin-top:3px;display:none' }, '');
         var assocRow = formRow('Assoc band', assocSel);
         assocRow.style.display = 'none';
         var bandRow  = formRow('Band', bandSel);
@@ -961,9 +1021,17 @@ function wizardStation(onDone) {
             var mlo = mloCb.checked;
             assocRow.style.display = mlo ? '' : 'none';
             bandRow.style.display  = mlo ? 'none' : '';
-            var hasLocalMloAp = mlo && (_data.mlds || []).some(function(m) { return m.mode === 'ap'; });
-            mloConflictNote.style.display = hasLocalMloAp ? 'block' : 'none';
-            goBtn.disabled = hasLocalMloAp;
+            var hasLocalMloAp  = mlo && (_data.mlds || []).some(function(m) { return m.mode === 'ap'; });
+            var hasLocalMloSta = mlo && (_data.mlds || []).some(function(m) { return m.mode === 'sta'; });
+            var blocked = hasLocalMloAp || hasLocalMloSta;
+            while (mloConflictNote.firstChild) mloConflictNote.removeChild(mloConflictNote.firstChild);
+            if (hasLocalMloAp)  mloConflictNote.appendChild(document.createTextNode('Cannot add MLO STA — a local MLO AP is active on the same radios. Remove it first (Networks tab).'));
+            if (hasLocalMloSta) mloConflictNote.appendChild(document.createTextNode('Cannot add a second MLO STA — one is already active. Remove it first (Networks tab).'));
+            mloConflictNote.style.display = blocked ? 'block' : 'none';
+            goBtn.disabled = blocked;
+            goBtn.style.background  = blocked ? '#555' : '';
+            goBtn.style.borderColor = blocked ? '#444' : '';
+            goBtn.style.cursor      = blocked ? 'not-allowed' : '';
         });
 
         var ipSel    = selectEl([['dhcp','DHCP'],['static','Static']], 'dhcp');
@@ -1025,6 +1093,16 @@ function wizardWDS(onDone) {
         var bandSel   = selectEl([['radio0','2.4 GHz'],['radio1','5 GHz']], 'radio1');
         var typeSel   = selectEl([['wds','WDS (4-address)'],['relayd','relayd (ARP proxy)']], 'wds');
         var applyDiv  = node('div', {});
+
+        var _wdsMloRids = new Set();
+        (_data.mlds || []).forEach(function(m) { (m.radios || []).forEach(function(r) { _wdsMloRids.add(r); }); });
+        var _wdsBlocked = false;
+        Array.from(bandSel.options).forEach(function(opt) {
+            if (!_wdsMloRids.has(opt.value)) return;
+            opt.disabled = true; opt.text += ' — MLO active';
+        });
+        var _wdsFree = Array.from(bandSel.options).find(function(o) { return !o.disabled; });
+        if (_wdsFree) { bandSel.value = _wdsFree.value; } else { _wdsBlocked = true; }
 
         var WDS_ENC_OPTS = {
             radio0: [['none','Open'],['psk2','WPA2'],['sae-mixed','WPA2/WPA3']],
@@ -1152,7 +1230,17 @@ function wizardWDS(onDone) {
         advBody.appendChild(formRow('Network', ifaceSel));
         body.appendChild(collapsible('wiz_wds_adv', 'Advanced parameters', function() { return advBody; }, false));
 
+        if (_wdsBlocked) {
+            var _wdsBlockDiv = node('div', { style: 'color:#e53935;font-size:12px;margin-bottom:10px;padding:8px;background:#3a070744;border-radius:4px;border-left:3px solid #e53935' },
+                'Both radios (2.4 GHz and 5 GHz) are part of an MLO group — WDS / relayd uplink is not possible. Remove the MLO network first.');
+            body.insertBefore(_wdsBlockDiv, body.firstChild);
+        }
+
         var goBtn = btn('Add WDS / Bridge', null, function() {
+            if (_wdsBlocked) return;
+            if (bandSel.options[bandSel.selectedIndex] && bandSel.options[bandSel.selectedIndex].disabled) {
+                body.appendChild(inlineErr('Selected band is part of an MLO group — choose a different band.')); return;
+            }
             var ssid = ssidIn.value.trim();
             if (!ssid) { body.appendChild(inlineErr('SSID is required')); return; }
             var useRelayd = typeSel.value === 'relayd';
@@ -1170,6 +1258,7 @@ function wizardWDS(onDone) {
                 }
             }, function() { close(); if (onDone) onDone(); }, setCloseable);
         });
+        if (_wdsBlocked) { goBtn.disabled = true; goBtn.style.background = '#555'; goBtn.style.borderColor = '#444'; goBtn.style.cursor = 'not-allowed'; }
         body.appendChild(node('div', { style: 'margin-top:12px' }, goBtn));
         body.appendChild(applyDiv);
     });
@@ -1183,6 +1272,17 @@ function wizardRepeater(onDone) {
         var step2      = node('div', { style: 'display:none' });
         var applyDiv   = node('div', {});
 
+        // Block uplink radios that are part of any MLO group (AP or STA)
+        var _repMloRids = new Set();
+        (_data.mlds || []).forEach(function(m) { (m.radios || []).forEach(function(r) { _repMloRids.add(r); }); });
+        var _repBlocked = false;
+        Array.from(uplinkRadioSel.options).forEach(function(opt) {
+            if (!_repMloRids.has(opt.value)) return;
+            opt.disabled = true; opt.text += ' — MLO active';
+        });
+        var _repFree = Array.from(uplinkRadioSel.options).find(function(o) { return !o.disabled; });
+        if (_repFree) { uplinkRadioSel.value = _repFree.value; } else { _repBlocked = true; }
+
         var passIn      = inputField('', 'Upstream password', 'password');
         var localSsidIn = inputField('', 'Local SSID');
         var localPassIn = inputField('', 'Local password', 'password');
@@ -1194,7 +1294,8 @@ function wizardRepeater(onDone) {
             while (scanArea.firstChild) scanArea.removeChild(scanArea.firstChild);
             data.forEach(function(n) {
                 var b = (n.mhz >= 5925) ? 6 : (n.mhz >= 5000) ? 5 : 2;
-                var bandRadio = b === 6 ? 'radio2' : b === 5 ? 'radio1' : 'radio0';
+                if (b === 6) return; // 6 GHz STA not supported (driver limitation)
+                var bandRadio = b === 5 ? 'radio1' : 'radio0';
                 var sigPct = n.quality_max ? Math.round(100 * n.quality / n.quality_max) : 0;
                 var sigColor = sigPct >= 66 ? '#4caf50' : sigPct >= 33 ? '#f5a623' : '#e53935';
                 var r = node('div', {
@@ -1214,6 +1315,7 @@ function wizardRepeater(onDone) {
                 r.addEventListener('mouseleave', function() { r.style.background = '#0d1b2a'; });
                 r.onclick = function() {
                     clearInterval(_repRefreshTimer);
+                    uplinkRadioSel.value = bandRadio; // sync uplink band to selected network
                     scanArea.style.display = 'none';
                     step2.style.display = 'block';
                     while (step2.firstChild) step2.removeChild(step2.firstChild);
@@ -1236,6 +1338,21 @@ function wizardRepeater(onDone) {
                                 while (applyDiv.firstChild) applyDiv.removeChild(applyDiv.firstChild);
                                 applyDiv.appendChild(inlineErr('Uplink and local AP must use different radios'));
                                 return;
+                            }
+                            var _mloApRids = new Set();
+                            (_data.mlds || []).filter(function(m) { return m.mode === 'ap'; }).forEach(function(m) {
+                                (m.radios || []).forEach(function(r) { _mloApRids.add(r); });
+                            });
+                            var apRid = apRadioSel.value;
+                            if (_mloApRids.has(apRid)) {
+                                var apCount = (_data.ifaces || []).filter(function(i) {
+                                    return !i.mlo && i.mode === 'ap' && Array.isArray(i.device) && i.device.indexOf(apRid) !== -1;
+                                }).length;
+                                if (apCount >= 1) {
+                                    while (applyDiv.firstChild) applyDiv.removeChild(applyDiv.firstChild);
+                                    applyDiv.appendChild(inlineErr('Local AP radio is at capacity — MLO radio already has a network. Choose the other radio.'));
+                                    return;
+                                }
                             }
                             if (!localSsidIn.value.trim()) {
                                 while (applyDiv.firstChild) applyDiv.removeChild(applyDiv.firstChild);
@@ -1292,10 +1409,13 @@ function wizardRepeater(onDone) {
         });
 
         var scanBtn = btnSecondary('Scan', doScan);
+        if (_repBlocked) { scanBtn.disabled = true; }
 
         body.appendChild(node('div', { style: 'color:#666;font-size:12px;margin-bottom:14px;line-height:1.5' },
             'L3 / NAT — connects to upstream WiFi on one radio (STA), re-broadcasts on a different radio (AP). ',
             'Clients get this router\'s LAN IP address.'));
+        if (_repBlocked) body.appendChild(node('div', { style: 'color:#e53935;font-size:12px;margin-bottom:10px;padding:8px;background:#3a070744;border-radius:4px;border-left:3px solid #e53935' },
+            'Both uplink radios (2.4 GHz and 5 GHz) are part of an MLO group — Repeater is not possible. Remove the MLO network first.'));
         body.appendChild(formRow('Uplink band', uplinkRadioSel));
         body.appendChild(node('div', { style: 'margin:8px 0' }, scanBtn));
         body.appendChild(scanErrDiv);
@@ -1928,6 +2048,7 @@ function netRow(type, iface, data, cliCount, country, isLast) {
     wrapper.appendChild(row);
 
     var isStaLost = iface.mode === 'sta' && (status === 'DISCONNECTED' || status === 'SCANNING');
+    if (isStaLost || status === 'INIT_FAILED') removeBtn.style.display = 'none';
     if (status === 'INIT_FAILED' || isStaLost) {
         var warnMsg = status === 'INIT_FAILED'
             ? 'Configuration lost — this network is no longer active. Remove it and set it up again using the wizard.'
@@ -2797,8 +2918,9 @@ return view.extend({
         document.addEventListener('input',  function() { _lastFormTouch = Date.now(); }, true);
 
         // ── Top bar ──
-        var topBar = node('div', { style: 'padding:8px 0 12px' });
+        var topBar = node('div', { style: 'padding:8px 0 12px;display:flex;align-items:baseline;justify-content:space-between' });
         topBar.appendChild(sp('WiFi Manager', 'color:#ddd;font-weight:bold;font-size:15px'));
+        topBar.appendChild(sp('v2.0.0', 'color:#444;font-size:11px'));
 
         // ── Tab nav ──
         var tabNav = node('div', { style: 'display:flex;border-bottom:1px solid #1a2a3a;margin-bottom:16px;overflow-x:auto' });
