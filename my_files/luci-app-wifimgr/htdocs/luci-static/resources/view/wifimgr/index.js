@@ -2088,6 +2088,41 @@ function renderRadios(data) {
         var legIn     = r.id === 'radio0' ? checkbox(r.legacy_rates) : null;
         var srIn      = checkbox(r.sr_enable);
         var txbfIn    = checkbox(r.etxbfen);
+        // Preamble Puncturing — 5G/6G only
+        var ppModeIn = null, ppBitmapWrap = null, ppBitButtons = null, ppBitCount = 0;
+        if (r.id !== 'radio0') {
+            ppModeIn = selectEl([['0','Disabled'],['1','Auto'],['2','Manual']], String(r.pp_mode || 0));
+            ppBitCount = r.id === 'radio2' ? 16 : 8;
+            ppBitButtons = [];
+            ppBitmapWrap = node('div', { style: 'display:none' });
+            var ppGrid = node('div', { style: 'display:flex;flex-wrap:wrap;gap:4px;margin-top:4px' });
+            for (var _bi = 0; _bi < ppBitCount; _bi++) {
+                (function(bi) {
+                    var active = !((r.pp_bitmap || 0) & (1 << bi));
+                    var btn = node('button', {
+                        style: 'width:32px;height:26px;font-size:10px;border-radius:3px;cursor:pointer;border:1px solid;' +
+                               (active ? 'background:#1a3a1a;border-color:#2a7a2a;color:#6f6' : 'background:#3a1a1a;border-color:#7a2a2a;color:#f66')
+                    }, String(bi));
+                    btn.title = active ? 'Active (click to puncture)' : 'Punctured (click to restore)';
+                    btn._ppActive = active;
+                    btn.onclick = function() {
+                        btn._ppActive = !btn._ppActive;
+                        btn.style.background    = btn._ppActive ? '#1a3a1a' : '#3a1a1a';
+                        btn.style.borderColor   = btn._ppActive ? '#2a7a2a' : '#7a2a2a';
+                        btn.style.color         = btn._ppActive ? '#6f6'    : '#f66';
+                        btn.title = btn._ppActive ? 'Active (click to puncture)' : 'Punctured (click to restore)';
+                    };
+                    ppBitButtons.push(btn);
+                    ppGrid.appendChild(btn);
+                })(_bi);
+            }
+            ppBitmapWrap.appendChild(ppGrid);
+            ppBitmapWrap.appendChild(sp('Each box = one 20 MHz subchannel. Green = active, red = punctured.', 'display:block;color:#555;font-size:10px;margin-top:3px'));
+            ppModeIn.onchange = function() {
+                ppBitmapWrap.style.display = ppModeIn.value === '2' ? '' : 'none';
+            };
+            if (r.pp_mode === 2) ppBitmapWrap.style.display = '';
+        }
 
         var bodyFn = function() {
             var b = node('div', { style: 'margin-top:10px' });
@@ -2181,6 +2216,10 @@ function renderRadios(data) {
             }
             b.appendChild(formRow('Spatial reuse', srIn));
             b.appendChild(formRow('Explicit TxBF', txbfIn));
+            if (ppModeIn) {
+                b.appendChild(formRow('Preamble Puncturing', ppModeIn));
+                b.appendChild(ppBitmapWrap);
+            }
             b.appendChild(node('div', { style: 'background:#1a1a0044;border:1px solid #f5a62344;border-radius:4px;padding:6px 10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between' },
                 sp('Disabled', 'color:#e24b4a99;font-size:12px'),
                 disIn
@@ -2202,6 +2241,16 @@ function renderRadios(data) {
                     p.sr_enable        = srIn.checked   ? '1' : '0';
                     p.etxbfen          = txbfIn.checked ? '1' : '0';
                     if (legIn !== null) p.legacy_rates  = legIn.checked  ? '1' : '0';
+                    if (ppModeIn !== null) {
+                        p.pp_mode = ppModeIn.value;
+                        if (ppModeIn.value === '2' && ppBitButtons) {
+                            var bmap = 0;
+                            ppBitButtons.forEach(function(b, i) {
+                                if (!b._ppActive) bmap |= (1 << i);
+                            });
+                            p.pp_bitmap = String(bmap);
+                        }
+                    }
                     applyFlow(applyDiv, function() { return layer2.radio_set(r.id, p); }, _onApplied);
                 })
             ));

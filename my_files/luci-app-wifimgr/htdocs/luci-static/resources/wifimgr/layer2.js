@@ -190,6 +190,8 @@ async function radio_get_all() {
             legacy_rates:     sec.legacy_rates     !== undefined ? uciBool(sec.legacy_rates)     : null,
             sr_enable:        sec.sr_enable        !== undefined ? uciBool(sec.sr_enable)        : null,
             etxbfen:          sec.etxbfen          !== undefined ? uciBool(sec.etxbfen)          : null,
+            pp_mode:          sec.pp_mode          !== undefined ? uciInt(sec.pp_mode)           : 0,
+            pp_bitmap:        sec.pp_bitmap        !== undefined ? uciInt(sec.pp_bitmap)          : 0,
             up:               ubusData[id] ? ubusData[id].up === true : false,
             freq:             h.freq          ? parseInt(h.freq)            : null,
             chan_util:        h.chan_util_avg !== undefined ? (parseInt(h.chan_util_avg) <= 100 ? parseInt(h.chan_util_avg) : null) : null,
