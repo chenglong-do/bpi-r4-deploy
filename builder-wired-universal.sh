@@ -49,11 +49,11 @@ echo "CONFIG_TASK_IO_ACCOUNTING=y" >> target/linux/mediatek/filogic/config-6.12
 
 \cp -r ../my_files/999-fitblk-02-w-add-bpi-r4-nvme-fitblk.patch target/linux/mediatek/patches-6.12
 
-\cp -r ../my_files/sms-tool/ feeds/packages/utils/sms-tool
-\cp -r ../my_files/modemdata-main/ feeds/packages/utils/modemdata 
-\cp -r ../my_files/luci-app-modemdata-main/luci-app-modemdata/ feeds/luci/applications
+#\cp -r ../my_files/sms-tool/ feeds/packages/utils/sms-tool
+#\cp -r ../my_files/modemdata-main/ feeds/packages/utils/modemdata
+#\cp -r ../my_files/luci-app-modemdata-main/luci-app-modemdata/ feeds/luci/applications
 \cp -r ../my_files/luci-app-lite-watchdog/ feeds/luci/applications
-\cp -r ../my_files/luci-app-sms-tool-js-main/luci-app-sms-tool-js/ feeds/luci/applications
+#\cp -r ../my_files/luci-app-sms-tool-js-main/luci-app-sms-tool-js/ feeds/luci/applications
 
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
@@ -85,18 +85,25 @@ chmod +x files/root/install-dir/install-emmc.sh
 \cp ../my_files/bpi-r4-install/install-nvme-unifi.sh files/root/install-dir/install-nvme-unifi.sh
 chmod +x files/root/install-dir/install-nvme-unifi.sh
 
+git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki feeds/luci/applications/OpenWrt-nikki
+git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon feeds/luci/applications/luci-theme-argon
+git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config feeds/luci/applications/luci-app-argon-config
+git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git feeds/luci/applications/lucky
+
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
+sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' package/feeds/packages/rust/Makefile
+
 \cp ../my_files/fit.sh package/utils/fitblk/files/fit.sh
 
-\cp -r ../my_files/qmi.sh package/network/utils/uqmi/files/lib/netifd/proto/
-chmod -R 755 package/network/utils/uqmi/files/lib/netifd/proto
-chmod -R 755 feeds/luci/applications/luci-app-modemdata/root
-chmod -R 755 feeds/luci/applications/luci-app-sms-tool-js/root
-chmod -R 755 feeds/packages/utils/modemdata/files/usr/share
+#\cp -r ../my_files/qmi.sh package/network/utils/uqmi/files/lib/netifd/proto/
+#chmod -R 755 package/network/utils/uqmi/files/lib/netifd/proto
+#chmod -R 755 feeds/luci/applications/luci-app-modemdata/root
+#chmod -R 755 feeds/luci/applications/luci-app-sms-tool-js/root
+#chmod -R 755 feeds/packages/utils/modemdata/files/usr/share
 
-\cp -r ../configs/my_defconfig-wired-universal .config
+\cp -r ../configs/defconfig_wired .config
 make defconfig
 
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-emmc-comb-4bg=y" >> .config

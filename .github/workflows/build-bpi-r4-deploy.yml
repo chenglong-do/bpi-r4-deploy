@@ -294,57 +294,57 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish release-4gb-standard
-        if: github.event.inputs.variant == 'standard'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-4gb-standard
-          name: "BPI-R4 4GB standard WiFi (latest)"
-          body: |
-            Variant: standard (WiFi) | RAM: 4GB
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-4gb/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-4gb-poe
-        if: github.event.inputs.variant == 'standard'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-4gb-poe
-          name: "BPI-R4 4GB PoE WiFi (latest)"
-          body: |
-            Variant: standard (WiFi) | RAM: 4GB | PoE
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-4gb-poe/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-standard
-        if: github.event.inputs.variant == 'standard'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-standard
-          name: "BPI-R4 8GB standard WiFi (latest)"
-          body: |
-            Variant: standard (WiFi) | RAM: 8GB
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-poe
-        if: github.event.inputs.variant == 'standard'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-poe
-          name: "BPI-R4 8GB PoE WiFi (latest)"
-          body: |
-            Variant: standard (WiFi) | RAM: 8GB | PoE
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb-poe/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      - name: Publish release-4gb-standard
+#        if: github.event.inputs.variant == 'standard'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-4gb-standard
+#          name: "BPI-R4 4GB standard WiFi (latest)"
+#          body: |
+#            Variant: standard (WiFi) | RAM: 4GB
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-4gb/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-4gb-poe
+#        if: github.event.inputs.variant == 'standard'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-4gb-poe
+#          name: "BPI-R4 4GB PoE WiFi (latest)"
+#          body: |
+#            Variant: standard (WiFi) | RAM: 4GB | PoE
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-4gb-poe/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-standard
+#        if: github.event.inputs.variant == 'standard'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-standard
+#          name: "BPI-R4 8GB standard WiFi (latest)"
+#          body: |
+#            Variant: standard (WiFi) | RAM: 8GB
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-poe
+#        if: github.event.inputs.variant == 'standard'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-poe
+#          name: "BPI-R4 8GB PoE WiFi (latest)"
+#          body: |
+#            Variant: standard (WiFi) | RAM: 8GB | PoE
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb-poe/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-4gb-wired
         if: github.event.inputs.variant == 'wired'
@@ -359,99 +359,99 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish release-4gb-poe-wired
-        if: github.event.inputs.variant == 'wired'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-4gb-poe-wired
-          name: "BPI-R4 4GB PoE wired (latest)"
-          body: |
-            Variant: wired (no WiFi) | RAM: 4GB | PoE
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-4gb-poe-wired/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-wired
-        if: github.event.inputs.variant == 'wired'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-wired
-          name: "BPI-R4 8GB wired (latest)"
-          body: |
-            Variant: wired (no WiFi) | RAM: 8GB
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb-wired/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-poe-wired
-        if: github.event.inputs.variant == 'wired'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-poe-wired
-          name: "BPI-R4 8GB PoE wired (latest)"
-          body: |
-            Variant: wired (no WiFi) | RAM: 8GB | PoE
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb-poe-wired/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-wired-unifi
-        if: github.event.inputs.variant == 'wired'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-wired-unifi
-          name: "BPI-R4 8GB wired UniFi (latest)"
-          body: |
-            Variant: wired (no WiFi) | RAM: 8GB | UniFi stack
-            Includes: unifi-setup.sh, unifi-network-setup.sh, rc.local, rc-network.sh
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb-unifi/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-8gb-poe-wired-unifi
-        if: github.event.inputs.variant == 'wired'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: release-8gb-poe-wired-unifi
-          name: "BPI-R4 8GB PoE wired UniFi (latest)"
-          body: |
-            Variant: wired (no WiFi) | RAM: 8GB | PoE | UniFi stack
-            Includes: unifi-setup.sh, unifi-network-setup.sh, rc.local, rc-network.sh
-            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-8gb-poe-unifi/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-standard
-        if: github.event.inputs.variant == 'pro'
-        run: |
-          gh release delete release-pro-8x-standard --yes 2>/dev/null || true
-          gh release create release-pro-8x-standard rel-pro/* \
-            --title "BPI-R4 Pro 8X standard WiFi (latest)" \
-            --notes "Variant: standard (WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-wired
-        if: github.event.inputs.variant == 'pro-wired'
-        run: |
-          gh release delete release-pro-8x-wired --yes 2>/dev/null || true
-          gh release create release-pro-8x-wired rel-pro-wired/* \
-            --title "BPI-R4 Pro 8X wired (latest)" \
-            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-unifi
-        if: github.event.inputs.variant == 'pro-wired'
-        run: |
-          gh release delete release-pro-8x-unifi --yes 2>/dev/null || true
-          gh release create release-pro-8x-unifi rel-pro-unifi/* \
-            --title "BPI-R4 Pro 8X wired UniFi (latest)" \
-            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | UniFi stack | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      - name: Publish release-4gb-poe-wired
+#        if: github.event.inputs.variant == 'wired'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-4gb-poe-wired
+#          name: "BPI-R4 4GB PoE wired (latest)"
+#          body: |
+#            Variant: wired (no WiFi) | RAM: 4GB | PoE
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-4gb-poe-wired/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-wired
+#        if: github.event.inputs.variant == 'wired'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-wired
+#          name: "BPI-R4 8GB wired (latest)"
+#          body: |
+#            Variant: wired (no WiFi) | RAM: 8GB
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb-wired/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-poe-wired
+#        if: github.event.inputs.variant == 'wired'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-poe-wired
+#          name: "BPI-R4 8GB PoE wired (latest)"
+#          body: |
+#            Variant: wired (no WiFi) | RAM: 8GB | PoE
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb-poe-wired/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-wired-unifi
+#        if: github.event.inputs.variant == 'wired'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-wired-unifi
+#          name: "BPI-R4 8GB wired UniFi (latest)"
+#          body: |
+#            Variant: wired (no WiFi) | RAM: 8GB | UniFi stack
+#            Includes: unifi-setup.sh, unifi-network-setup.sh, rc.local, rc-network.sh
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb-unifi/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-8gb-poe-wired-unifi
+#        if: github.event.inputs.variant == 'wired'
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: release-8gb-poe-wired-unifi
+#          name: "BPI-R4 8GB PoE wired UniFi (latest)"
+#          body: |
+#            Variant: wired (no WiFi) | RAM: 8GB | PoE | UniFi stack
+#            Includes: unifi-setup.sh, unifi-network-setup.sh, rc.local, rc-network.sh
+#            Commit: ${{ github.event.inputs.repo_commit || github.sha }}
+#          files: rel-8gb-poe-unifi/*
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-pro-8x-standard
+#        if: github.event.inputs.variant == 'pro'
+#        run: |
+#          gh release delete release-pro-8x-standard --yes 2>/dev/null || true
+#          gh release create release-pro-8x-standard rel-pro/* \
+#            --title "BPI-R4 Pro 8X standard WiFi (latest)" \
+#            --notes "Variant: standard (WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-pro-8x-wired
+#        if: github.event.inputs.variant == 'pro-wired'
+#        run: |
+#          gh release delete release-pro-8x-wired --yes 2>/dev/null || true
+#          gh release create release-pro-8x-wired rel-pro-wired/* \
+#            --title "BPI-R4 Pro 8X wired (latest)" \
+#            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Publish release-pro-8x-unifi
+#        if: github.event.inputs.variant == 'pro-wired'
+#        run: |
+#          gh release delete release-pro-8x-unifi --yes 2>/dev/null || true
+#          gh release create release-pro-8x-unifi rel-pro-unifi/* \
+#            --title "BPI-R4 Pro 8X wired UniFi (latest)" \
+#            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | UniFi stack | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
