@@ -10,7 +10,7 @@ on:
       variant:
         description: 'Build variant'
         required: true
-        default: 'pro'
+        default: 'wired'
         type: choice
         options:
           - pro
@@ -58,7 +58,7 @@ jobs:
 
           if [ "$VARIANT" = "wired" ]; then
             echo "BUILDER=./builder-wired-universal.sh" >> $GITHUB_ENV
-            echo "RELEASE_TAGS=release-4gb-wired release-4gb-poe-wired release-8gb-wired release-8gb-poe-wired release-8gb-wired-unifi release-8gb-poe-wired-unifi" >> $GITHUB_ENV
+            echo "RELEASE_TAGS=release-4gb-wired" >> $GITHUB_ENV
           elif [ "$VARIANT" = "pro" ]; then
             echo "BUILDER=./builder-pro-8x.sh" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-pro-8x-standard" >> $GITHUB_ENV

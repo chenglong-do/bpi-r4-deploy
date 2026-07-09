@@ -4,9 +4,12 @@ set -euo pipefail
 rm -rf openwrt
 rm -rf mtk-openwrt-feeds
 
-tar -xzf repo-cache/openwrt.tar.gz --strip-components=1 -C . --one-top-level=openwrt
-tar -xzf repo-cache/mtk-openwrt-feeds.tar.gz --strip-components=1 -C . --one-top-level=mtk-openwrt-feeds
+git clone --branch openwrt-25.12 https://git.openwrt.org/openwrt/openwrt.git openwrt
+cd openwrt; git checkout ${OPENWRT_COMMIT:-6dead2869209f4ff9825f3169c129c5ef04f6273}; cd -;
 
+# 2026-07-06: migrated git01 -> main (git01 frozen; MTK recommends main). Single source of truth.
+git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwrt-feeds
+( cd mtk-openwrt-feeds && git checkout 822c2f0603614e47ec8496571043431494fd2841 )
 
 #\cp -r my_files/feed_revision mtk-openwrt-feeds/autobuild/unified/
 
@@ -32,28 +35,35 @@ echo "CONFIG_BLK_DEV_NVME=y" >> target/linux/mediatek/filogic/config-6.12
 
 \cp -r ../my_files/999-fitblk-02-w-add-bpi-r4-nvme-fitblk.patch target/linux/mediatek/patches-6.12
 
-\cp -r ../my_files/sms-tool/ feeds/packages/utils/sms-tool
-\cp -r ../my_files/modemdata-main/ feeds/packages/utils/modemdata 
-\cp -r ../my_files/luci-app-modemdata-main/luci-app-modemdata/ feeds/luci/applications
+#\cp -r ../my_files/sms-tool/ feeds/packages/utils/sms-tool
+#\cp -r ../my_files/modemdata-main/ feeds/packages/utils/modemdata
+#\cp -r ../my_files/luci-app-modemdata-main/luci-app-modemdata/ feeds/luci/applications
 \cp -r ../my_files/luci-app-lite-watchdog/ feeds/luci/applications
-\cp -r ../my_files/luci-app-sms-tool-js-main/luci-app-sms-tool-js/ feeds/luci/applications
+#\cp -r ../my_files/luci-app-sms-tool-js-main/luci-app-sms-tool-js/ feeds/luci/applications
 
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
 
+git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki feeds/luci/applications/OpenWrt-nikki
+git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon feeds/luci/applications/luci-theme-argon
+git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config feeds/luci/applications/luci-app-argon-config
+git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git feeds/luci/applications/lucky
+
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
+sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' package/feeds/packages/rust/Makefile
+
 \cp ../my_files/fit.sh package/utils/fitblk/files/fit.sh
 
-\cp -r ../my_files/qmi.sh package/network/utils/uqmi/files/lib/netifd/proto/
-chmod -R 755 package/network/utils/uqmi/files/lib/netifd/proto
-chmod -R 755 feeds/luci/applications/luci-app-modemdata/root
-chmod -R 755 feeds/luci/applications/luci-app-sms-tool-js/root
-chmod -R 755 feeds/packages/utils/modemdata/files/usr/share
+#\cp -r ../my_files/qmi.sh package/network/utils/uqmi/files/lib/netifd/proto/
+#chmod -R 755 package/network/utils/uqmi/files/lib/netifd/proto
+#chmod -R 755 feeds/luci/applications/luci-app-modemdata/root
+#chmod -R 755 feeds/luci/applications/luci-app-sms-tool-js/root
+#chmod -R 755 feeds/packages/utils/modemdata/files/usr/share
 
-\cp -r ../configs/my_defconfig-wired .config
+\cp -r ../configs/defconfig_wired .config
 make defconfig
 
 
