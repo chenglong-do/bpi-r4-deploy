@@ -57,7 +57,12 @@ jobs:
 
       - name: Set build variables
         run: |
-          VARIANT="${{ github.event.inputs.variant }}"
+          # For scheduled runs, default to 'wired'; for manual dispatch, use input
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            VARIANT="wired"
+          else
+            VARIANT="${{ github.event.inputs.variant }}"
+          fi
 
           if [ "$VARIANT" = "wired" ]; then
             echo "BUILDER=./builder-wired-universal.sh" >> $GITHUB_ENV
