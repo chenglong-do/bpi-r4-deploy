@@ -13,6 +13,7 @@ CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_bananapi_bpi-r4-nand=y
 CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_bananapi_bpi-r4-nand=""
 CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_bananapi_bpi-r4-nand-8gb=y
 CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_bananapi_bpi-r4-nand-8gb=""
+CONFIG_TARGET_ROOTFS_PARTSIZE=2048
 CONFIG_DEVEL=y
 CONFIG_BUSYBOX_CUSTOM=y
 CONFIG_TARGET_PER_DEVICE_ROOTFS=y
