@@ -96,7 +96,7 @@ git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git feeds/luci/appl
 sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' package/feeds/packages/rust/Makefile
 
 \cp ../my_files/fit.sh package/utils/fitblk/files/fit.sh
-
+sed -i 's/192.168.1.1/192.168.168.1/g' package/base-files/files/bin/config_generate
 #\cp -r ../my_files/qmi.sh package/network/utils/uqmi/files/lib/netifd/proto/
 #chmod -R 755 package/network/utils/uqmi/files/lib/netifd/proto
 #chmod -R 755 feeds/luci/applications/luci-app-modemdata/root
