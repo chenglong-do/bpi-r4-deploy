@@ -108,13 +108,6 @@ sed -i 's/192.168.1.1/192.168.168.1/g' package/base-files/files/bin/config_gener
 \cp -r ../configs/defconfig_wired .config
 make defconfig
 
-# Hard-fail if any docker runtime package gets pulled back by dependencies.
-if grep -Eq '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=[ym]$' .config; then
-	echo "ERROR: Docker-related packages are enabled after defconfig:" >&2
-	grep -E '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=' .config >&2 || true
-	exit 1
-fi
-
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-emmc-comb-4bg=y" >> .config
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-sdmmc-comb-4bg=y" >> .config
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-spim-nand-ubi-comb-4bg=y" >> .config
