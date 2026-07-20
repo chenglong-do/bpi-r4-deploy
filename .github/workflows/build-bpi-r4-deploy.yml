@@ -255,50 +255,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish luci-app-wifimgr APK
+      - name: Prepare luci APKs for wired release
         if: github.event.inputs.variant == 'standard'
         run: |
-          APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
-          if [ -z "$APK" ]; then
-            echo "ERROR: luci-app-wifimgr APK not found" >&2
+          APK_DIR="openwrt/bin/packages/aarch64_cortex-a53/luci"
+          APK_COUNT=$(find "$APK_DIR" -maxdepth 1 -name '*.apk' | wc -l | tr -d ' ')
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: no luci APKs found for wired release" >&2
             exit 1
           fi
-
-          PKG_DIR="wifimgr-latest"
-          PKG_ARCHIVE="luci-app-wifimgr-latest.tar.gz"
-
-          rm -rf "$PKG_DIR"
-          mkdir -p "$PKG_DIR"
-          cp "$APK" "$PKG_DIR/"
-          (
-            cd "$PKG_DIR"
-            sha256sum "$(basename "$APK")" > sha256sums
-          )
-          tar -czf "$PKG_ARCHIVE" "$PKG_DIR"
-
-          echo "APK_PATH=$APK" >> $GITHUB_ENV
-          echo "APK_NAME=$(basename $APK)" >> $GITHUB_ENV
-          echo "APK_ARCHIVE_PATH=$PKG_ARCHIVE" >> $GITHUB_ENV
-
-      - name: Publish wifimgr-latest release
-        if: github.event.inputs.variant == 'standard'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: wifimgr-latest
-          name: "luci-app-wifimgr (latest)"
-          body: |
-            Standalone APK for luci-app-wifimgr — install on any BPI-R4 running this firmware.
-
-            ```
-            apk add --allow-untrusted --no-network /tmp/${{ env.APK_NAME }}
-            ```
-
-            Built from commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: |
-            ${{ env.APK_PATH }}
-            ${{ env.APK_ARCHIVE_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "WIRED_APK_DIR=$APK_DIR" >> $GITHUB_ENV
 
       - name: Publish release-sdk
         if: github.event.inputs.variant == 'standard'
@@ -395,7 +361,7 @@ jobs:
             Commit: ${{ github.event.inputs.repo_commit || github.sha }}
           files: |
             rel-4gb-wired/*
-            ${{ env.WIRED_APK_PATH }}
+            ${{ env.WIRED_APK_DIR }}/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
