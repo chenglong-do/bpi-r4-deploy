@@ -44,6 +44,8 @@ echo "CONFIG_BLK_DEV_NVME=y" >> target/linux/mediatek/filogic/config-6.12
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
+\cp -r ../my_files/99-docker-disable files/etc/uci-defaults/
+chmod +x files/etc/uci-defaults/99-docker-disable
 
 git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki feeds/luci/applications/OpenWrt-nikki
 git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon feeds/luci/applications/luci-theme-argon
@@ -65,6 +67,13 @@ sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' p
 
 \cp -r ../configs/defconfig_wired .config
 make defconfig
+
+# Hard-fail if any docker runtime package gets pulled back by dependencies.
+if grep -Eq '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=[ym]$' .config; then
+	echo "ERROR: Docker-related packages are enabled after defconfig:" >&2
+	grep -E '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=' .config >&2 || true
+	exit 1
+fi
 
 
 bash ../mtk-openwrt-feeds/autobuild/unified/autobuild.sh filogic build

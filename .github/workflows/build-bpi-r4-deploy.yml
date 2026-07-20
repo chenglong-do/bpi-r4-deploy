@@ -259,8 +259,26 @@ jobs:
         if: github.event.inputs.variant == 'standard'
         run: |
           APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: luci-app-wifimgr APK not found" >&2
+            exit 1
+          fi
+
+          PKG_DIR="wifimgr-latest"
+          PKG_ARCHIVE="luci-app-wifimgr-latest.tar.gz"
+
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR"
+          cp "$APK" "$PKG_DIR/"
+          (
+            cd "$PKG_DIR"
+            sha256sum "$(basename "$APK")" > sha256sums
+          )
+          tar -czf "$PKG_ARCHIVE" "$PKG_DIR"
+
           echo "APK_PATH=$APK" >> $GITHUB_ENV
           echo "APK_NAME=$(basename $APK)" >> $GITHUB_ENV
+          echo "APK_ARCHIVE_PATH=$PKG_ARCHIVE" >> $GITHUB_ENV
 
       - name: Publish wifimgr-latest release
         if: github.event.inputs.variant == 'standard'
@@ -276,7 +294,9 @@ jobs:
             ```
 
             Built from commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: ${{ env.APK_PATH }}
+          files: |
+            ${{ env.APK_PATH }}
+            ${{ env.APK_ARCHIVE_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

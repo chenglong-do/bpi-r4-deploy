@@ -58,6 +58,8 @@ echo "CONFIG_TASK_IO_ACCOUNTING=y" >> target/linux/mediatek/filogic/config-6.12
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
+\cp -r ../my_files/99-docker-disable files/etc/uci-defaults/
+chmod +x files/etc/uci-defaults/99-docker-disable
 
 # LAN LED: mtk-led-fix programs mt7530 gphy port-LED registers at boot (link + tx/rx activity)
 mkdir -p files/etc/init.d
@@ -105,6 +107,13 @@ sed -i 's/192.168.1.1/192.168.168.1/g' package/base-files/files/bin/config_gener
 
 \cp -r ../configs/defconfig_wired .config
 make defconfig
+
+# Hard-fail if any docker runtime package gets pulled back by dependencies.
+if grep -Eq '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=[ym]$' .config; then
+	echo "ERROR: Docker-related packages are enabled after defconfig:" >&2
+	grep -E '^(CONFIG_PACKAGE_(docker|dockerd|docker-compose|containerd|runc))=' .config >&2 || true
+	exit 1
+fi
 
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-emmc-comb-4bg=y" >> .config
 echo "CONFIG_PACKAGE_trusted-firmware-a-mt7988-sdmmc-comb-4bg=y" >> .config
