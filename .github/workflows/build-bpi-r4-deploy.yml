@@ -374,6 +374,16 @@ jobs:
 #        env:
 #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare luci-app-wifimgr APK for wired release
+        if: github.event.inputs.variant == 'wired'
+        run: |
+          APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: luci-app-wifimgr APK not found for wired release" >&2
+            exit 1
+          fi
+          echo "WIRED_APK_PATH=$APK" >> $GITHUB_ENV
+
       - name: Publish release-4gb-wired
         if: github.event.inputs.variant == 'wired'
         uses: softprops/action-gh-release@v2
@@ -383,7 +393,9 @@ jobs:
           body: |
             Variant: wired (no WiFi) | RAM: 4GB
             Commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: rel-4gb-wired/*
+          files: |
+            rel-4gb-wired/*
+            ${{ env.WIRED_APK_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
