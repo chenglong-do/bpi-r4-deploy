@@ -256,7 +256,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare luci APKs for wired release
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.variant == 'wired'
         run: |
           APK_DIR="openwrt/bin/packages/aarch64_cortex-a53/luci"
           APK_COUNT=$(find "$APK_DIR" -maxdepth 1 -name '*.apk' | wc -l | tr -d ' ')
@@ -339,16 +339,6 @@ jobs:
 #          files: rel-8gb-poe/*
 #        env:
 #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare luci-app-wifimgr APK for wired release
-        if: github.event.inputs.variant == 'wired'
-        run: |
-          APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
-          if [ -z "$APK" ]; then
-            echo "ERROR: luci-app-wifimgr APK not found for wired release" >&2
-            exit 1
-          fi
-          echo "WIRED_APK_PATH=$APK" >> $GITHUB_ENV
 
       - name: Publish release-4gb-wired
         if: github.event.inputs.variant == 'wired'
