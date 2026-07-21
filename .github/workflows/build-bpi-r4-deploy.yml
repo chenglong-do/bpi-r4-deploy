@@ -264,7 +264,20 @@ jobs:
             echo "ERROR: no luci APKs found for wired release" >&2
             exit 1
           fi
-          echo "WIRED_APK_DIR=$APK_DIR" >> $GITHUB_ENV
+
+          ZIP_NAME="luci-apks-wired.zip"
+          TMP_DIR="wired-luci-apks"
+
+          rm -rf "$TMP_DIR" "$ZIP_NAME"
+          mkdir -p "$TMP_DIR"
+          cp "$APK_DIR"/*.apk "$TMP_DIR/"
+          (
+            cd "$TMP_DIR"
+            zip -q -r "../$ZIP_NAME" .
+          )
+          rm -rf "$TMP_DIR"
+
+          echo "WIRED_APK_ZIP=$ZIP_NAME" >> $GITHUB_ENV
 
       - name: Publish release-sdk
         if: github.event.inputs.variant == 'standard'
@@ -348,10 +361,11 @@ jobs:
           name: "BPI-R4 4GB wired (latest)"
           body: |
             Variant: wired (no WiFi) | RAM: 4GB
+            Includes: all luci APKs bundled in a zip archive.
             Commit: ${{ github.event.inputs.repo_commit || github.sha }}
           files: |
             rel-4gb-wired/*
-            ${{ env.WIRED_APK_DIR }}/*.apk
+            ${{ env.WIRED_APK_ZIP }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
