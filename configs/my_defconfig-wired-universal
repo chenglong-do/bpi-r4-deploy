@@ -519,8 +519,8 @@ CONFIG_PACKAGE_kmod-usb-net-ipheth=y
 CONFIG_PACKAGE_kmod-usb-printer=y
 CONFIG_PACKAGE_kmod-usb-storage-uas=y
 CONFIG_PACKAGE_kmod-vxlan=y
-CONFIG_PACKAGE_kmod-nf-flow-netlink=y
-CONFIG_PACKAGE_netfilter-flowtable=y
+# CONFIG_PACKAGE_kmod-nf-flow-netlink is not set
+# CONFIG_PACKAGE_netfilter-flowtable is not set
 CONFIG_PACKAGE_luci-app-adblock=y
 CONFIG_PACKAGE_luci-app-autoreboot=y
 CONFIG_PACKAGE_luci-app-cpu-status=y
