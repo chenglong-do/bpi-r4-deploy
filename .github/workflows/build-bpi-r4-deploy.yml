@@ -1,9 +1,16 @@
 # Build base: build-versions.env is the source of truth. It is loaded into the
 # environment below and OVERRIDES the defaults baked into the builder scripts,
 # so bumping a builder alone has no effect here.
-#   OpenWrt:  4a5c6b90d21522d2663ce2718c973f9e845f2119  (openwrt-25.12, 6.12.103)
-#   MTK SDK:  4e825214deaafc5cdc5457d66a1a828449f07e69  (main, mt7996 AP-panic fix)
-# Bumped 2026-08-20 (prev 4d0fec5a / 3a4e2a25 = 6.12.94, HW verified 2026-08-06).
+#   OpenWrt:  9facdff6fb001b7a4e8cea395b89278fd49ca92f  (openwrt-25.12, 6.12.108)
+#   MTK SDK:  e55f4f30d66b2a99c5a1b75bdc2f22bf6c756243  (main)
+# Bumped 2026-09-16 (prev 4a5c6b90 / 4e825214 = 6.12.103, 20 Aug, never HW verified).
+#
+# This workflow builds the BPI-R4 ONLY. The Pro 8X variants used to live here too,
+# writing to release-pro-8x-standard and release-pro-8x-wired - the very tags that
+# build-bpi-r4-pro-8x.yml on pro-8x-unifi publishes. Two builders on two branches,
+# two different pins, one set of release tags: running this one by mistake replaced
+# a current Pro 8X release with an image built from a May pin. Pro 8X belongs on
+# pro-8x-unifi, so the variants are gone from here rather than kept in step.
 name: Build BPI-R4 Deploy
 
 on:
@@ -12,11 +19,9 @@ on:
       variant:
         description: 'Build variant'
         required: true
-        default: 'pro'
+        default: 'standard'
         type: choice
         options:
-          - pro
-          - pro-wired
           - standard
           - wired
       repo_commit:
@@ -61,12 +66,6 @@ jobs:
           if [ "$VARIANT" = "wired" ]; then
             echo "BUILDER=./builder-wired-universal.sh" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-4gb-wired release-4gb-poe-wired release-8gb-wired release-8gb-poe-wired release-8gb-wired-unifi release-8gb-poe-wired-unifi" >> $GITHUB_ENV
-          elif [ "$VARIANT" = "pro" ]; then
-            echo "BUILDER=./builder-pro-8x.sh" >> $GITHUB_ENV
-            echo "RELEASE_TAGS=release-pro-8x-standard" >> $GITHUB_ENV
-          elif [ "$VARIANT" = "pro-wired" ]; then
-            echo "BUILDER=./builder-pro-8x-wired.sh" >> $GITHUB_ENV
-            echo "RELEASE_TAGS=release-pro-8x-wired release-pro-8x-unifi" >> $GITHUB_ENV
           else
             echo "BUILDER=./builder-wifimgr-universal.sh" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-4gb-standard release-4gb-poe release-8gb-standard release-8gb-poe release-sdk" >> $GITHUB_ENV
@@ -127,8 +126,8 @@ jobs:
             cd ..
           }
 
-          # Standard R4 variants (not built by pro/pro-wired)
-          if [ "$VARIANT" != "pro" ] && [ "$VARIANT" != "pro-wired" ]; then
+          # Standard R4 variants
+          if true; then
             # 4GB non-poe
             make_release_dir rel-4gb \
               "openwrt-mediatek-filogic-bananapi_bpi-r4-squashfs-sysupgrade.itb" \
@@ -425,35 +424,5 @@ jobs:
             Includes: unifi-setup.sh, unifi-network-setup.sh, rc.local, rc-network.sh
             Commit: ${{ github.event.inputs.repo_commit || github.sha }}
           files: rel-8gb-poe-unifi/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-standard
-        if: github.event.inputs.variant == 'pro'
-        run: |
-          gh release delete release-pro-8x-standard --yes 2>/dev/null || true
-          gh release create release-pro-8x-standard rel-pro/* \
-            --title "BPI-R4 Pro 8X standard WiFi (latest)" \
-            --notes "Variant: standard (WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-wired
-        if: github.event.inputs.variant == 'pro-wired'
-        run: |
-          gh release delete release-pro-8x-wired --yes 2>/dev/null || true
-          gh release create release-pro-8x-wired rel-pro-wired/* \
-            --title "BPI-R4 Pro 8X wired (latest)" \
-            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release-pro-8x-unifi
-        if: github.event.inputs.variant == 'pro-wired'
-        run: |
-          gh release delete release-pro-8x-unifi --yes 2>/dev/null || true
-          gh release create release-pro-8x-unifi rel-pro-unifi/* \
-            --title "BPI-R4 Pro 8X wired UniFi (latest)" \
-            --notes "Variant: wired (no WiFi) | RAM: 8GB | BPI-R4 Pro 8X | UniFi stack | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
