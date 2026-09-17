@@ -35,6 +35,12 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Refuse to build from the default branch
+        if: github.ref_name == 'main'
+        run: |
+          echo "::error::Pro 8X is built from branch pro-8x-unifi, not main. In 'Run workflow' pick 'Use workflow from: pro-8x-unifi'."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
