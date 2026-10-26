@@ -19,30 +19,32 @@ cd openwrt; git checkout ${OPENWRT_COMMIT}; cd -;
 git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwrt-feeds
 ( cd mtk-openwrt-feeds && git checkout ${MTK_COMMIT:-e55f4f30d66b2a99c5a1b75bdc2f22bf6c756243} )
 
-
 \cp -r my_files/999-sfp-10-additional-quirks.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-sfp-11-rtl8261be-mdio-none.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-sfp-22-rtl8261be-boot-1g-reprobe.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-eth-21-mtk-gdm-rx-fsm-reset.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-pcs-10-lynxi-hold-link-down-on-invalid-speed.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
-\cp -r my_files/999-fix-01-mac80211-btwt-ap-mode.patch mtk-openwrt-feeds/autobuild/unified/filogic/mac80211/25.12/files/package/kernel/mac80211/patches/subsys/0999-fix-mac80211-btwt-ap-mode-he-btwt-supported.patch
 # ODSTRANENO 2026-09-16: MediaTek tenhle patch od commitu 2b48bf00 (3. 9.) veze sam
 # jako 999-crypto-07-xfrm-backport-kernel-7.1-fix-return-value-for-async-algo.patch
 # a jejich verze ma navic druhy commit (stale skb->prev po async crypto). Ponechani
 # naseho by patch aplikovalo DVAKRAT a build by spadl.
 #\cp -r my_files/999-fix-00-xfrm-propagate-einprogress.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
-\cp -r my_files/0264-wpa_s-add-btwt-join-command.patch mtk-openwrt-feeds/autobuild/unified/filogic/mac80211/25.12/files/package/network/services/hostapd/patches/0264-wpa_s-add-btwt-join-command.patch
-
-### tx_power check Ivan Mironov's patch - for defective BE14 boards with defective eeprom flash
-#\cp -r my_files/100-wifi-mt76-mt7996-Use-tx_power-from-default-fw-if-EEP.patch mtk-openwrt-feeds/autobuild/unified/filogic/mac80211/25.12/files/package/kernel/mt76/patches
-
-### per-band WiFi LED (MT7996, single-wiphy MLO) + shared tpt trigger - HW verified 2026-06-28
-\cp -r my_files/999-wifi-01-mt7996-per-band-leds.patch mtk-openwrt-feeds/autobuild/unified/filogic/mac80211/25.12/files/package/kernel/mt76/patches/9999-w-mt7996-per-band-leds.patch
-\cp -r my_files/999-wifi-02-mt76-share-tpt-led-trigger.patch mtk-openwrt-feeds/autobuild/unified/filogic/mac80211/25.12/files/package/kernel/mt76/patches/9999-w-mt76-share-tpt-led-trigger.patch
 
 cd openwrt
 bash ../mtk-openwrt-feeds/autobuild/unified/autobuild.sh filogic-mac80211-mt798x_rfb-wifi7_nic prepare
 
+# Wi-Fi: since MTK feed c21f3b36 mt76/mac80211/hostapd come from github.com/mediatek/softmac_*
+# and the feed has no patch directories for them any more. Pin the sources, then add our patches
+# straight into the packages.
+sh ../my_files/softmac-pin.sh
+mkdir -p package/kernel/mt76/patches package/kernel/mac80211/patches/subsys package/network/services/hostapd/patches
+### tx_power check Ivan Mironov's patch - for defective BE14 boards with defective eeprom flash
+#\cp ../my_files/100-wifi-mt76-mt7996-Use-tx_power-from-default-fw-if-EEP.patch package/kernel/mt76/patches/
+\cp ../my_files/999-fix-01-mac80211-btwt-ap-mode.patch package/kernel/mac80211/patches/subsys/0999-fix-mac80211-btwt-ap-mode-he-btwt-supported.patch
+\cp ../my_files/0264-wpa_s-add-btwt-join-command.patch package/network/services/hostapd/patches/0264-wpa_s-add-btwt-join-command.patch
+### per-band WiFi LED (MT7996, single-wiphy MLO) + shared tpt trigger - HW verified 2026-06-28
+\cp ../my_files/999-wifi-01-mt7996-per-band-leds.patch package/kernel/mt76/patches/9999-w-mt7996-per-band-leds.patch
+\cp ../my_files/999-wifi-02-mt76-share-tpt-led-trigger.patch package/kernel/mt76/patches/9999-w-mt76-share-tpt-led-trigger.patch
 
 \cp -r ../my_files/453-w-add-bpi-r4-nvme-dtso.patch target/linux/mediatek/patches-6.12/
 \cp -r ../my_files/450-w-nand-mmc-add-bpi-r4.patch package/boot/uboot-mediatek/patches/450-add-bpi-r4.patch
