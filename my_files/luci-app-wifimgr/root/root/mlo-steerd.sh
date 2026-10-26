@@ -1,7 +1,7 @@
 #!/bin/sh
 # mlo-steerd v0.4 - MLO Link Steering Daemon + Neg-TTLM + R-TWT
 #
-# Steering algorithm (per-link):
+# Steering algorithm (per-link, SNR from the median client RSSI on the link):
 #   Hard disable : SNR < SNR_HARD_LOW (ignore other params)
 #   Hard enable  : SNR > SNR_HARD_HIGH AND retries < RETRIES_CONFIRM
 #   Soft zone    : weighted score = SNR*60% + retries*30% + busy*10%
@@ -26,12 +26,32 @@ SNR_HARD_HIGH_6=20     # force enable 6G above this (+ retries check)
 SNR_HARD_LOW_5=0
 SNR_HARD_HIGH_5=15
 
+# Noise reference for SNR. The survey "noise" on mt7996 is the mean of the
+# idle-power (IPI) histogram, whose lowest bin is -92 dBm; it includes
+# in-band interference and reads ~20 dB above the real floor (e.g. -71..-77
+# on a 1%-busy 5G/6G channel), which made good links score as dead.
+# NOISE_SOURCE=fixed uses NOISE_FLOOR for every link; =survey keeps the old
+# behaviour. Override with: uci set mlo-steerd.global.noise=fixed|survey
+NOISE_SOURCE=fixed
+NOISE_FLOOR=-92
+
+# Per-link RSSI is the last value seen from the client on that link and
+# never ages out; ignore links the client hasn't used for this long.
+RSSI_MAX_AGE_MS=10000
+
+# A disabled link gets no traffic, so no fresh RSSI to re-enable it on.
+# After this long without data, enable it again and let the next samples
+# decide (it is disabled again after COOLDOWN_S if still bad).
+REENABLE_PROBE_S=120
+
 # Soft zone score thresholds (0-10000 scale)
 SCORE_DISABLE=4000
 SCORE_ENABLE=6000
 
 # Retries confirmation for hard enable
 RETRIES_CONFIRM=15     # % max retries to confirm enable
+RETRIES_MIN_PKTS=300   # min tx packets per interval for a fresh retries %; below it the last value is kept
+RETRIES_STATE=/tmp/steerd-retries.state
 
 # Cooldown between ATTLM actions (seconds)
 COOLDOWN_S=30
@@ -98,27 +118,68 @@ busy_at() {
     '
 }
 
-# Get aggregate tx retries % across all connected clients
+# Get aggregate tx retries % across all connected clients over the last interval.
+# Counters in station dump are cumulative since association, so the previous
+# per-station values are kept in RETRIES_STATE and only the delta is used.
+# Only the per-station totals are read (one leading tab); the per-link lines
+# under "Link N:" repeat the same traffic and would count it twice.
+# Must be called once per loop: each call advances the baseline.
 retries_pct() {
-    iw dev "$MLO_IF" station dump 2>/dev/null | awk '
-        /tx packets:/ { total += $NF }
-        /tx retries:/ { retries += $NF }
-        END { if (total > 0) printf "%d", (retries * 100) / total; else print "0" }
+    iw dev "$MLO_IF" station dump 2>/dev/null | awk \
+        -v state="$RETRIES_STATE" -v minp="$RETRIES_MIN_PKTS" '
+        BEGIN {
+            last = -1
+            while ((getline l < state) > 0) {
+                split(l, a, " ")
+                if (a[1] == "_last") last = a[2]
+                else { pp[a[1]] = a[2]; pr[a[1]] = a[3] }
+            }
+            close(state)
+        }
+        /^Station / { mac = $2 }
+        /^\ttx packets:/ { p[mac] = $NF; total += $NF }
+        /^\ttx retries:/ { r[mac] = $NF; retries += $NF }
+        END {
+            # New stations and re-associations (counters went down) have
+            # no baseline yet and are left out of this interval
+            for (m in p)
+                if ((m in pp) && p[m] >= pp[m] && r[m] >= pr[m]) {
+                    dp += p[m] - pp[m]; dr += r[m] - pr[m]
+                }
+            if (dp >= minp)    pct = int(dr * 100 / dp)
+            else if (last >= 0) pct = last
+            else               pct = (total > 0) ? int(retries * 100 / total) : 0
+            printf "" > state
+            for (m in p) print m, p[m], r[m] > state
+            print "_last", pct > state
+            print pct
+        }
     '
 }
 
-# Get minimum RSSI for a link_id (returns "none" if link idle)
-min_rssi() {
+# Get the RSSI that represents a link_id as a whole (returns "none" if link idle).
+# A-TTLM is advertised BSS-wide, so it must follow what most clients see, not
+# the weakest one: with n clients this is the median, and for an even n the
+# upper of the two middle values. The link then scores as bad only when more
+# than half of its clients are below the threshold, and a single distant
+# client is left to its own link selection.
+link_rssi() {
     local lid="$1"
-    iw dev "$MLO_IF" station dump 2>/dev/null | awk -v lid="$lid" '
-        /Link/ { in_link = (index($0, "Link " lid ":") > 0) }
+    iw dev "$MLO_IF" station dump 2>/dev/null | awk -v lid="$lid" -v maxage="$RSSI_MAX_AGE_MS" '
+        /Link/ { in_link = (index($0, "Link " lid ":") > 0); age = -1 }
+        in_link && /inactive time:/ { age = $3 + 0 }
         in_link && /signal:/ && /\[/ {
             v=$0; sub(/.*signal:[[:space:]]*/,"",v); sub(/[[:space:]].*/, "",v)
             val=v+0
-            if (val != 0 && (min==0 || val < min)) min=val
+            if (val != 0 && age <= maxage) {
+                # insertion sort, ascending (busybox awk has no asort)
+                i = ++n
+                while (i > 1 && s[i-1] > val) { s[i] = s[i-1]; i-- }
+                s[i] = val
+            }
             in_link=0
         }
-        END { print (min+0 != 0) ? min : "none" }
+        END { print (n > 0) ? s[int(n / 2) + 1] : "none" }
     '
 }
 
@@ -290,7 +351,10 @@ WANT_DISABLE_6=0
 WANT_DISABLE_5=0
 NEG_TTLM_MACS=""
 LAST_ACTION=0
+DIS6_AT=0
+DIS5_AT=0
 RTWT_LOOP_CTR=0
+rm -f "$RETRIES_STATE"
 
 # Create R-TWT groups on startup
 btwt_ensure
@@ -309,8 +373,14 @@ while true; do
 
     # Collect inputs
     update_link_freqs
-    N0=$(noise_at $FREQ_L0); N1=$(noise_at $FREQ_L1); N2=$(noise_at $FREQ_L2)
-    R0=$(min_rssi 0);        R1=$(min_rssi 1);        R2=$(min_rssi 2)
+    NOISE_MODE=$(uci -q get mlo-steerd.global.noise 2>/dev/null)
+    [ -z "$NOISE_MODE" ] && NOISE_MODE="$NOISE_SOURCE"
+    if [ "$NOISE_MODE" = "survey" ]; then
+        N0=$(noise_at $FREQ_L0); N1=$(noise_at $FREQ_L1); N2=$(noise_at $FREQ_L2)
+    else
+        N0=$NOISE_FLOOR; N1=$NOISE_FLOOR; N2=$NOISE_FLOOR
+    fi
+    R0=$(link_rssi 0);       R1=$(link_rssi 1);       R2=$(link_rssi 2)
     RET=$(retries_pct)
     BUSY2=$(busy_at $FREQ_L2); BUSY1=$(busy_at $FREQ_L1)
     [ -z "$BUSY2" ] && BUSY2=0
@@ -392,6 +462,26 @@ while true; do
             fi
         fi
     fi
+
+    # --- Re-enable probe for links disabled without fresh data (auto mode) ---
+    if [ "$MODE" = "auto" ]; then
+        if [ "$WANT_DISABLE_6" -eq 1 ]; then
+            [ "$DIS6_AT" -eq 0 ] && DIS6_AT=$NOW
+            if [ "$SNR2_VALID" -eq 0 ] && [ $(( NOW - DIS6_AT )) -ge "$REENABLE_PROBE_S" ]; then
+                WANT_DISABLE_6=0; LAST_ACTION=$NOW
+                log "6G: no fresh RSSI for $(( NOW - DIS6_AT ))s while disabled → PROBE ENABLE"
+            fi
+        fi
+        if [ "$WANT_DISABLE_5" -eq 1 ]; then
+            [ "$DIS5_AT" -eq 0 ] && DIS5_AT=$NOW
+            if [ "$SNR1_VALID" -eq 0 ] && [ $(( NOW - DIS5_AT )) -ge "$REENABLE_PROBE_S" ]; then
+                WANT_DISABLE_5=0; LAST_ACTION=$NOW
+                log "5G: no fresh RSSI for $(( NOW - DIS5_AT ))s while disabled → PROBE ENABLE"
+            fi
+        fi
+    fi
+    [ "$WANT_DISABLE_6" -eq 0 ] && DIS6_AT=0
+    [ "$WANT_DISABLE_5" -eq 0 ] && DIS5_AT=0
 
     # --- Compute ATTLM mask and apply ---
     MASK=0
