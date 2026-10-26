@@ -62,8 +62,8 @@ echo "CONFIG_TASK_IO_ACCOUNTING=y" >> target/linux/mediatek/filogic/config-6.12
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
-\cp -r ../my_files/99-docker-disable files/etc/uci-defaults/
-chmod +x files/etc/uci-defaults/99-docker-disable
+# \cp -r ../my_files/99-docker-disable files/etc/uci-defaults/
+# chmod +x files/etc/uci-defaults/99-docker-disable
 
 # LAN LED: mtk-led-fix programs mt7530 gphy port-LED registers at boot (link + tx/rx activity)
 mkdir -p files/etc/init.d
