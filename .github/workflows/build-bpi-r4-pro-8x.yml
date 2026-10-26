@@ -126,7 +126,7 @@ jobs:
         if: steps.cache-mtk.outputs.cache-hit != 'true'
         run: |
           mkdir -p repo-cache
-          git clone --branch master https://git01.mediatek.com/openwrt/feeds/mtk-openwrt-feeds mtk-clone
+          git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-clone
           cd mtk-clone && git checkout ${{ env.MTK_COMMIT }} && cd ..
           tar -czf repo-cache/mtk-openwrt-feeds.tar.gz mtk-clone
           rm -rf mtk-clone

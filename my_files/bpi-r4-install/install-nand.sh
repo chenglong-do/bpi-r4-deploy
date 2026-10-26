@@ -29,9 +29,12 @@ printf "\n"
 printf "Enter choice [1-2]: "
 read RAM_CHOICE
 
+# The NAND system only installs eMMC/NVMe, so it always comes from the wired
+# release: the standard (WiFi) NAND image is ~123 MB, which nearly fills the
+# 128 MB NAND, and users saw it hang at boot while the wired one works (#43).
 case "$RAM_CHOICE" in
-    1) GH_TAG="release-4gb-standard"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin";     RAM_LABEL="4GB" ;;
-    2) GH_TAG="release-8gb-standard"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"; RAM_LABEL="8GB" ;;
+    1) GH_TAG="release-4gb-wired"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin";     RAM_LABEL="4GB" ;;
+    2) GH_TAG="release-8gb-wired"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"; RAM_LABEL="8GB" ;;
     *)
         printf "\n${RED}ERROR: Invalid choice!${NC}\n\n"
         exit 1
