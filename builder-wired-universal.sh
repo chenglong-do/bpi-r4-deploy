@@ -9,11 +9,11 @@ rm -rf openwrt
 rm -rf mtk-openwrt-feeds
 
 git clone --branch openwrt-25.12 https://github.com/openwrt/openwrt.git openwrt
-cd openwrt; git checkout ${OPENWRT_COMMIT:-9facdff6fb001b7a4e8cea395b89278fd49ca92f}; cd -;
+cd openwrt; git checkout ${OPENWRT_COMMIT:-f3f5c2e54bf432b444e36b1a77077ff476361825}; cd -;
 
 # 2026-07-06: migrated git01 -> main (git01 frozen; MTK recommends main). Single source of truth.
 git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwrt-feeds
-( cd mtk-openwrt-feeds && git checkout ${MTK_COMMIT:-e55f4f30d66b2a99c5a1b75bdc2f22bf6c756243} )
+( cd mtk-openwrt-feeds && git checkout ${MTK_COMMIT:-c21f3b3617be249a1408a5e9daa66d402dd555bb} )
 
 #\cp -r my_files/feed_revision mtk-openwrt-feeds/autobuild/unified/
 
@@ -21,7 +21,9 @@ git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwr
 \cp -r my_files/999-sfp-11-rtl8261be-mdio-none.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-sfp-22-rtl8261be-boot-1g-reprobe.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-eth-21-mtk-gdm-rx-fsm-reset.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
-\cp -r my_files/999-pcs-10-lynxi-hold-link-down-on-invalid-speed.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
+# 999-pcs-10 (lynxi: no link-up with an unresolved speed) dropped 2026-10-26: MediaTek fixed the
+# same warm-reboot 1G SFP case in ba3f4f51 (decode via phylink_mii_c22_pcs_decode_state + barriers),
+# and the code our patch changed is gone.
 # ODSTRANENO 2026-09-16: MediaTek tenhle patch od commitu 2b48bf00 (3. 9.) veze sam
 # jako 999-crypto-07-xfrm-backport-kernel-7.1-fix-return-value-for-async-algo.patch
 # a jejich verze ma navic druhy commit (stale skb->prev po async crypto). Ponechani
