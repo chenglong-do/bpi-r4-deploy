@@ -60,11 +60,13 @@ jobs:
         run: |
           VARIANT="${{ github.event.inputs.variant }}"
 
+          # Not BUILD_VARIANT: the OpenWrt make reads that from the environment
+          # and builds every package (U-Boot too) as that variant.
           if [ "$VARIANT" = "Pro-8X-wifi" ]; then
-            echo "BUILD_VARIANT=standard" >> $GITHUB_ENV
+            echo "BOARD_VARIANT=standard" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-pro-8x-standard" >> $GITHUB_ENV
           else
-            echo "BUILD_VARIANT=wired" >> $GITHUB_ENV
+            echo "BOARD_VARIANT=wired" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-pro-8x-wired" >> $GITHUB_ENV
           fi
 
@@ -88,7 +90,7 @@ jobs:
             rsync swig unzip zlib1g-dev file wget libelf-dev ccache git
 
       - name: Build
-        run: ./build.sh bpi-r4-pro-8x "$BUILD_VARIANT"
+        run: ./build.sh bpi-r4-pro-8x "$BOARD_VARIANT"
 
       - name: Prepare release artifacts
         run: |
