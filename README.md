@@ -401,7 +401,16 @@ Update a running system with the release's `.itb` file (`bpi-r4.itb`, `bpi-r4-po
 - **LuCI** → System → Backup / Flash Firmware → *Flash image*, keep settings ticked, or
 - **SSH:** copy the file to `/tmp` and run `sysupgrade /tmp/bpi-r4.itb`.
 
-This is standard OpenWrt `sysupgrade` and is meant to keep your settings and leave the NVMe data partitions (`p3`, and `p4` on UniFi installs) alone. **It has not been tested on NVMe or eMMC installs yet**, so back up first: *System → Backup / Flash Firmware → Generate archive*, and copy anything important off `p3`/`p4`. If you try it, please report the result in an issue.
+What survives depends on where the system runs:
+
+| Installed on | Settings | Data partitions |
+|---|---|---|
+| SD card, eMMC, NAND | kept (standard OpenWrt upgrade) | — |
+| NVMe | **not kept** — back to defaults | `p3` (and `p4` on UniFi installs) untouched |
+
+On NVMe the upgrade script writes the new firmware but does not carry the settings over, even with *keep settings* ticked. So before upgrading an NVMe install, save your settings (*System → Backup / Flash Firmware → Generate archive*) and restore that archive after the upgrade.
+
+This table comes from reading the upgrade scripts, not from a test on every board. If your result differs, please open an issue.
 
 > ⚠️ **Do not re-run `install-nvme.sh`, `install-nvme-unifi.sh` or `install-emmc.sh` to update.** They are installers: they erase the whole disk, data partitions included.
 
