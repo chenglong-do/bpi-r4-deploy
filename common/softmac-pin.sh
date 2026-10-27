@@ -7,9 +7,9 @@
 # Pin each package to a commit, and put the commit into PKG_VERSION as well:
 # the source tarball in dl/ is named after PKG_VERSION, so a tarball of an older
 # commit is never reused, and the version on the router shows the commit.
-SOFTMAC_MT76=${SOFTMAC_MT76:-7117d4f04a103cfa39bca63c1cce8eaa7e18a263}
-SOFTMAC_MAC80211=${SOFTMAC_MAC80211:-583ea44cd2be2f843412ffd9e727bf6134d55ca3}
-SOFTMAC_HOSTAPD=${SOFTMAC_HOSTAPD:-611070267e83dc4f26783d400a139c3d1494378a}
+: "${SOFTMAC_MT76:?set in pins.conf}"
+: "${SOFTMAC_MAC80211:?set in pins.conf}"
+: "${SOFTMAC_HOSTAPD:?set in pins.conf}"
 
 softmac_pin() {
 	mk=$1/Makefile

@@ -1,16 +1,8 @@
-# Build base: build-versions.env is the source of truth. It is loaded into the
-# environment below and OVERRIDES the defaults baked into the builder scripts,
-# so bumping a builder alone has no effect here.
-#   OpenWrt:  9facdff6fb001b7a4e8cea395b89278fd49ca92f  (openwrt-25.12, 6.12.108)
-#   MTK SDK:  e55f4f30d66b2a99c5a1b75bdc2f22bf6c756243  (main)
-# Bumped 2026-09-16 (prev 4a5c6b90 / 4e825214 = 6.12.103, 20 Aug, never HW verified).
-#
-# This workflow builds the BPI-R4 ONLY. The Pro 8X variants used to live here too,
-# writing to release-pro-8x-standard and release-pro-8x-wired - the very tags that
-# build-bpi-r4-pro-8x.yml on pro-8x-unifi publishes. Two builders on two branches,
-# two different pins, one set of release tags: running this one by mistake replaced
-# a current Pro 8X release with an image built from a May pin. Pro 8X belongs on
-# pro-8x-unifi, so the variants are gone from here rather than kept in step.
+# Builds the BPI-R4 (4 GB, 8 GB, PoE) with ./build.sh bpi-r4 <variant>.
+# The upstream revisions come from pins.conf; the dispatch inputs
+# openwrt_commit/mtk_commit override them for a trial build.
+# The images are always kept as a workflow artifact for 14 days; they replace
+# the public releases only when "publish" is ticked.
 name: Build BPI-R4 Deploy
 
 on:
@@ -29,13 +21,18 @@ on:
         required: false
         default: ''
       openwrt_commit:
-        description: 'OpenWrt commit hash (leave empty to use build-versions.env)'
+        description: 'OpenWrt commit hash (leave empty to use pins.conf)'
         required: false
         default: ''
       mtk_commit:
-        description: 'MTK SDK commit hash (leave empty to use build-versions.env)'
+        description: 'MTK SDK commit hash (leave empty to use pins.conf)'
         required: false
         default: ''
+      publish:
+        description: 'Publish to the release tags (unchecked: images only as a workflow artifact)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -55,7 +52,7 @@ jobs:
 
       - name: Load build versions
         run: |
-          grep -v '^\s*#' build-versions.env | grep -v '^\s*$' >> $GITHUB_ENV
+          grep -v '^\s*#' pins.conf | grep -v '^\s*$' >> $GITHUB_ENV
           [ -n "${{ github.event.inputs.openwrt_commit }}" ] && echo "OPENWRT_COMMIT=${{ github.event.inputs.openwrt_commit }}" >> $GITHUB_ENV || true
           [ -n "${{ github.event.inputs.mtk_commit }}" ] && echo "MTK_COMMIT=${{ github.event.inputs.mtk_commit }}" >> $GITHUB_ENV || true
 
@@ -64,10 +61,8 @@ jobs:
           VARIANT="${{ github.event.inputs.variant }}"
 
           if [ "$VARIANT" = "wired" ]; then
-            echo "BUILDER=./builder-wired-universal.sh" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-4gb-wired release-4gb-poe-wired release-8gb-wired release-8gb-poe-wired release-8gb-wired-unifi release-8gb-poe-wired-unifi" >> $GITHUB_ENV
           else
-            echo "BUILDER=./builder-wifimgr-universal.sh" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-4gb-standard release-4gb-poe release-8gb-standard release-8gb-poe release-sdk" >> $GITHUB_ENV
           fi
 
@@ -90,13 +85,8 @@ jobs:
             gettext libncurses-dev libssl-dev python3-distutils python3-setuptools \
             rsync swig unzip zlib1g-dev file wget libelf-dev ccache git
 
-      - name: Run builder script
-        run: |
-          chmod +x ${{ env.BUILDER }}
-          ${{ env.BUILDER }}
-        env:
-          OPENWRT_COMMIT: ${{ env.OPENWRT_COMMIT }}
-          MTK_COMMIT: ${{ env.MTK_COMMIT }}
+      - name: Build
+        run: ./build.sh bpi-r4 "${{ github.event.inputs.variant }}"
 
       - name: Prepare release artifacts
         run: |
@@ -194,10 +184,10 @@ jobs:
             cp -r rel-8gb-poe rel-8gb-poe-unifi
 
             for DIR in rel-8gb-unifi rel-8gb-poe-unifi; do
-              cp unifi/unifi-setup.sh             "$DIR/"
-              cp unifi/rc.local                   "$DIR/"
-              cp unifi/rc-network.sh              "$DIR/"
-              cp unifi/unifi-network-setup-8gb.sh "$DIR/unifi-network-setup.sh"
+              cp boards/bpi-r4/unifi/unifi-setup.sh             "$DIR/"
+              cp boards/bpi-r4/unifi/rc.local                   "$DIR/"
+              cp boards/bpi-r4/unifi/rc-network.sh              "$DIR/"
+              cp boards/bpi-r4/unifi/unifi-network-setup-8gb.sh "$DIR/unifi-network-setup.sh"
             done
           fi
 
@@ -207,16 +197,34 @@ jobs:
             cp -r rel-pro rel-pro-unifi
 
             for DIR in rel-pro-unifi; do
-              cp unifi/unifi-setup.sh             "$DIR/"
-              cp unifi/rc.local                   "$DIR/"
-              cp unifi/rc-network.sh              "$DIR/"
-              cp unifi/unifi-network-setup-8gb.sh "$DIR/unifi-network-setup.sh"
+              cp boards/bpi-r4/unifi/unifi-setup.sh             "$DIR/"
+              cp boards/bpi-r4/unifi/rc.local                   "$DIR/"
+              cp boards/bpi-r4/unifi/rc-network.sh              "$DIR/"
+              cp boards/bpi-r4/unifi/unifi-network-setup-8gb.sh "$DIR/unifi-network-setup.sh"
             done
           fi
 
       # Atomic release: delete old releases/tags only AFTER a successful build +
       # artifact prep, so a build failure leaves the existing releases intact.
+      - name: Upload images as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-bpi-r4-${{ github.event.inputs.variant }}
+          path: |
+            rel-4gb/*.itb
+            rel-4gb/openwrt-*-sdcard.img.gz
+            rel-4gb/config.buildinfo
+            rel-4gb-poe/*.itb
+            rel-4gb-poe/openwrt-*-sdcard.img.gz
+            rel-8gb/*.itb
+            rel-8gb/openwrt-*-sdcard.img.gz
+            rel-8gb-poe/*.itb
+            rel-8gb-poe/openwrt-*-sdcard.img.gz
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Delete existing releases and tags
+        if: github.event.inputs.publish == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -249,14 +257,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish luci-app-wifimgr APK
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         run: |
           APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
           echo "APK_PATH=$APK" >> $GITHUB_ENV
           echo "APK_NAME=$(basename $APK)" >> $GITHUB_ENV
 
       - name: Publish wifimgr-latest release
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: wifimgr-latest
@@ -274,7 +282,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-sdk
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-sdk
@@ -296,7 +304,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-4gb-standard
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-4gb-standard
@@ -309,7 +317,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-4gb-poe
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-4gb-poe
@@ -322,7 +330,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-standard
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-standard
@@ -335,7 +343,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-poe
-        if: github.event.inputs.variant == 'standard'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-poe
@@ -348,7 +356,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-4gb-wired
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-4gb-wired
@@ -361,7 +369,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-4gb-poe-wired
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-4gb-poe-wired
@@ -374,7 +382,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-wired
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-wired
@@ -387,7 +395,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-poe-wired
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-poe-wired
@@ -400,7 +408,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-wired-unifi
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-wired-unifi
@@ -414,7 +422,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-8gb-poe-wired-unifi
-        if: github.event.inputs.variant == 'wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'wired')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-8gb-poe-wired-unifi

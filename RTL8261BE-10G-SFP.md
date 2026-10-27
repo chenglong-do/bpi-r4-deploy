@@ -56,7 +56,7 @@ and the kernel retries for minutes.
 
 ## Fix
 
-**File:** `my_files/999-sfp-11-rtl8261be-mdio-none.patch`
+**File:** `common/patches/kernel/999-sfp-11-rtl8261be-mdio-none.patch`
 
 The fix extends `sfp_fixup_rollball_cc` with a probe that auto-detects whether
 a module has a real ROLLBALL I2C-to-MDIO bridge:

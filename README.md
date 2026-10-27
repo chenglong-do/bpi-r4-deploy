@@ -415,32 +415,38 @@ Fork this repository to build your own customized release.
 2. Go to **Settings → Actions → General** → set **Workflow permissions** to **Read and write**.
 3. Go to **Actions**, pick the workflow for your board and press **Run workflow**:
    - **BPI-R4** — *Build BPI-R4 Deploy*, **Use workflow from: `main`**
-   - **BPI-R4 Pro 8X** — *Build BPI-R4 Pro 8X*, **Use workflow from: `pro-8x-unifi`**, then **Pro-8X-wifi** or **Pro-8X-wired**
+   - **BPI-R4 Pro 8X** — *Build BPI-R4 Pro 8X*, **Use workflow from: `main`**, then **Pro-8X-wifi** or **Pro-8X-wired**
+   - Tick **publish** to turn the build into releases; unticked, the images are only kept as a workflow artifact.
 4. After ~2–3 hours, releases appear in your fork.
 
 To install from your fork, edit `GH_USER` at the top of the install scripts.
 
-### Branches
+### Repository layout
 
-| Branch | What it builds | Builders |
-|--------|----------------|----------|
-| `main` | BPI-R4 (4 GB / 8 GB, PoE, WiFi and wired) | `builder-wifimgr-universal.sh`, `builder-wired-universal.sh` |
-| `pro-8x-unifi` | BPI-R4 Pro 8X | `builder-pro-8x.sh`, `builder-pro-8x-wired.sh` |
+Both boards are built from `main` by one script:
 
-The Pro 8X builders live **only** on `pro-8x-unifi`. The Pro 8X workflow files are
-also kept on `main` because GitHub needs them there to show the *Run workflow* button,
-but running them from `main` stops with an error.
+```
+./build.sh <bpi-r4|bpi-r4-pro-8x> <standard|wired>
+```
+
+| Path | What it holds |
+|------|---------------|
+| `pins.conf` | Every upstream revision: OpenWrt, MediaTek feed, mt76/mac80211/hostapd |
+| `scripts/common.sh` | Build steps shared by both boards |
+| `common/` | Patches, packages and image files both boards use |
+| `boards/<board>/board.sh` | What only that board does |
+| `boards/<board>/` | Its patches, `filogic.mk`, U-Boot/TF-A Makefiles, image files, `configs/<variant>.config`, UniFi scripts |
 
 ### Building locally
 
-The builders clone OpenWrt and the MediaTek feed themselves at the commits pinned
-inside each builder (override with `OPENWRT_COMMIT` / `MTK_COMMIT`). On Ubuntu 22.04
+`build.sh` clones OpenWrt and the MediaTek feed itself at the commits in `pins.conf`
+(a variable set in the environment wins, e.g. `MTK_COMMIT=<sha>`). On Ubuntu 22.04
 with the [OpenWrt build prerequisites](https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem):
 
 ```
-git clone -b pro-8x-unifi https://github.com/woziwrt/bpi-r4-deploy   # or -b main for BPI-R4
+git clone https://github.com/woziwrt/bpi-r4-deploy
 cd bpi-r4-deploy
-bash ./builder-pro-8x.sh
+./build.sh bpi-r4-pro-8x standard
 ```
 
 ---
