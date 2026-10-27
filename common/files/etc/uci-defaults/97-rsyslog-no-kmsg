@@ -1,0 +1,7 @@
+#!/bin/sh
+# logd already reads /proc/kmsg. With rsyslog's imklog both daemons read it,
+# rsyslog wins the race and logd sits in a blocking read, so nothing drains
+# /dev/log: dropbear never sends its banner and rpcd (LuCI) hangs.
+# Kernel messages stay in logread.
+uci -q del_list rsyslog.syslog.modules='imklog' && uci commit rsyslog
+exit 0
