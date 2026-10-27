@@ -35,10 +35,6 @@ git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwr
 cd openwrt
 bash ../mtk-openwrt-feeds/autobuild/unified/autobuild.sh filogic-mac80211-mt798x_rfb-wifi7_nic prepare
 
-# BPI-R4 Lite: the MTK feed (patches-base/1120) adds an &hnat node to the Lite DTS, but the hnat
-# label only exists with MTK's Logan HNAT driver, which we do not use - the DTB would not build.
-sed -i '/^&hnat {$/,/^};$/d' target/linux/mediatek/dts/mt7987a-bananapi-bpi-r4-lite.dts
-
 # Wi-Fi: since MTK feed c21f3b36 mt76/mac80211/hostapd come from github.com/mediatek/softmac_*
 # and the feed has no patch directories for them any more. Pin the sources, then add our patches
 # straight into the packages.
