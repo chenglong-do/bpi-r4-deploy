@@ -279,3 +279,33 @@ define Device/bananapi_bpi-r4-nand-8gb
   ARTIFACTS := snand-img.bin
 endef
 TARGET_DEVICES += bananapi_bpi-r4-nand-8gb
+
+# PoE (2.5GE) NAND installers: the PoE DTS and PHY driver, and the PoE
+# SPI-NAND U-Boot, whose env boots NVMe after install-nvme.sh. The non-PoE
+# installers above carry the non-PoE U-Boot, which a PoE board must not get.
+# UBINIZE_PARTS is set after the common call, which hardcodes the non-PoE FIP.
+# Device based on PR #26 by Vadim Zhamkov.
+define Device/bananapi_bpi-r4-poe-nand
+  DEVICE_MODEL := BPi-R4 2.5GE NAND installer
+  DEVICE_DTS := mt7988a-bananapi-bpi-r4-2g5
+  DEVICE_DTS_CONFIG := config-mt7988a-bananapi-bpi-r4-poe
+  $(call Device/bananapi_bpi-r4-common-4gb)
+  DEVICE_PACKAGES += mt798x-2p5g-phy-firmware-internal kmod-mt798x-2p5g-phy
+  ARTIFACTS := snand-img.bin
+  SUPPORTED_DEVICES += bananapi,bpi-r4-2g5
+  UBINIZE_PARTS := fip=:$(STAGING_DIR_IMAGE)/mt7988_bananapi_bpi-r4-poe-snand-u-boot.fip
+endef
+TARGET_DEVICES += bananapi_bpi-r4-poe-nand
+
+define Device/bananapi_bpi-r4-poe-nand-8gb
+  DEVICE_MODEL := BPi-R4 2.5GE NAND installer 8GB
+  DEVICE_DTS := mt7988a-bananapi-bpi-r4-2g5
+  DEVICE_DTS_CONFIG := config-mt7988a-bananapi-bpi-r4-poe
+  BPI_R4_FIP_NAME := bananapi_bpi-r4-poe
+  $(call Device/bananapi_bpi-r4-common-8gb)
+  DEVICE_PACKAGES += mt798x-2p5g-phy-firmware-internal kmod-mt798x-2p5g-phy
+  ARTIFACTS := snand-img.bin
+  SUPPORTED_DEVICES += bananapi,bpi-r4-2g5
+  UBINIZE_PARTS := fip=:$(STAGING_DIR_IMAGE)/mt7988_bananapi_bpi-r4-poe-snand-u-boot.fip
+endef
+TARGET_DEVICES += bananapi_bpi-r4-poe-nand-8gb

@@ -17,10 +17,18 @@ printf "  BPI-R4 NAND Installer\n"
 printf "=================================================\n"
 printf "\n"
 
-# || 0. RAM variant selection |||||||||||||||||||||||||||||||||||||||||||||||||
-# The NAND image is a lean installer (no docker/UniFi) and is variant-agnostic;
-# it only differs by RAM (DRAM training in BL2). PoE boards are not handled here.
+# || 0. Board and RAM variant selection ||||||||||||||||||||||||||||||||||||||||
+# The NAND image is a lean installer (no docker/UniFi). It differs by RAM
+# (DRAM training in BL2) and by board: the PoE (2.5GE) board needs its own
+# DTS and its own U-Boot, so it gets the PoE NAND image. The board is taken
+# from the running system, which the user booted from the matching SD image.
 
+case "$(cat /tmp/sysinfo/board_name 2>/dev/null)" in
+    bananapi,bpi-r4-2g5|bananapi,bpi-r4-poe) POE=1; BOARD_LABEL="BPI-R4 2.5GE (PoE)" ;;
+    *)                                       POE=0; BOARD_LABEL="BPI-R4" ;;
+esac
+
+printf "Board: %s\n\n" "$BOARD_LABEL"
 printf "Select your board RAM variant:\n"
 printf "\n"
 printf "  1) 4GB\n"
@@ -40,6 +48,14 @@ case "$RAM_CHOICE" in
         exit 1
         ;;
 esac
+
+if [ "$POE" = 1 ]; then
+    case "$RAM_CHOICE" in
+        1) GH_TAG="release-4gb-poe-wired"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nand-snand-img.bin" ;;
+        2) GH_TAG="release-8gb-poe-wired"; SNAND_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nand-8gb-snand-img.bin" ;;
+    esac
+    RAM_LABEL="${RAM_LABEL} PoE"
+fi
 
 SNAND_IMG="/tmp/${SNAND_NAME}"
 SOURCE_IS_LOCAL=0

@@ -136,6 +136,10 @@ Connect the WAN cable and run from the SD card:
 ```
 
 Select your **RAM (4 GB or 8 GB)**, then the file source — download from GitHub (default) or a local file in `/tmp`.
+The board is detected from the running system: a **2.5GE PoE** board (booted from the PoE SD image) gets the PoE NAND image, with the PoE U-Boot.
+
+> ⚠️ **PoE boards:** the PoE NAND image and the NVMe boot from it are not tested on hardware — we do not own a PoE board.
+> If you install it, please report how it went in an [issue](https://github.com/woziwrt/bpi-r4-deploy/issues).
 
 After the script finishes:
 

@@ -139,7 +139,7 @@ jobs:
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nvme-img.bin" \
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-sdcard.img.gz" \
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-emmc-img.bin" \
-            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin"
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nand-snand-img.bin"
 
           # 8GB non-poe
           make_release_dir rel-8gb \
@@ -157,7 +157,7 @@ jobs:
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" \
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-sdcard.img.gz" \
             "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" \
-            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nand-8gb-snand-img.bin"
 
           # The wired build also feeds the UniFi releases: the 8 GB wired
           # firmware plus the UniFi setup scripts.
@@ -195,6 +195,21 @@ jobs:
           done
           for DIR in rel-4gb-poe rel-8gb-poe; do
             check "$(ls $DIR/*-emmc-img.bin)" config-mt7988a-bananapi-bpi-r4-poe
+          done
+          # NAND images: the U-Boot in the fip volume must match the board and
+          # carry the NVMe boot that install-nvme.sh switches on.
+          check_snand() {
+            strings "$1" | grep -qx "bootconf=$2" \
+              || { echo "$1: NAND U-Boot does not boot $2"; exit 1; }
+            strings "$1" | grep -q "^boot_nvme=" \
+              || { echo "$1: NAND U-Boot has no boot_nvme"; exit 1; }
+            echo "$1: $2, boot_nvme"
+          }
+          for DIR in rel-4gb rel-8gb; do
+            check_snand "$(ls $DIR/*-snand-img.bin)" config-mt7988a-bananapi-bpi-r4
+          done
+          for DIR in rel-4gb-poe rel-8gb-poe; do
+            check_snand "$(ls $DIR/*-snand-img.bin)" config-mt7988a-bananapi-bpi-r4-poe
           done
 
       - name: Upload images as a workflow artifact
