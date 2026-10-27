@@ -116,64 +116,45 @@ jobs:
             cd ..
           }
 
-          # Standard R4 variants
-          if true; then
-            # 4GB non-poe
-            make_release_dir rel-4gb \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-squashfs-sysupgrade.itb" \
-              "bpi-r4.itb" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-nvme-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-sdcard.img.gz" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-emmc-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin"
+          # R4 variants
+          # 4GB non-poe
+          make_release_dir rel-4gb \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-squashfs-sysupgrade.itb" \
+            "bpi-r4.itb" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-nvme-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-sdcard.img.gz" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-emmc-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin"
 
-            # 4GB PoE
-            make_release_dir rel-4gb-poe \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-squashfs-sysupgrade.itb" \
-              "bpi-r4-poe.itb" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nvme-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-sdcard.img.gz" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-emmc-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin"
+          # 4GB PoE
+          make_release_dir rel-4gb-poe \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-squashfs-sysupgrade.itb" \
+            "bpi-r4-poe.itb" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-nvme-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-sdcard.img.gz" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-emmc-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-snand-img.bin"
 
-            # 8GB non-poe
-            make_release_dir rel-8gb \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-squashfs-sysupgrade.itb" \
-              "bpi-r4.itb" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-nvme-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-sdcard.img.gz" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-emmc-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"
+          # 8GB non-poe
+          make_release_dir rel-8gb \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-squashfs-sysupgrade.itb" \
+            "bpi-r4.itb" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-nvme-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-sdcard.img.gz" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-emmc-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"
 
-            # 8GB PoE
-            make_release_dir rel-8gb-poe \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-squashfs-sysupgrade.itb" \
-              "bpi-r4-poe.itb" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-sdcard.img.gz" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"
-          fi
+          # 8GB PoE
+          make_release_dir rel-8gb-poe \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-squashfs-sysupgrade.itb" \
+            "bpi-r4-poe.itb" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-sdcard.img.gz" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" \
+            "openwrt-mediatek-filogic-bananapi_bpi-r4-nand-8gb-snand-img.bin"
 
-          # Pro variants
-          if [ "$VARIANT" = "pro" ] || [ "$VARIANT" = "pro-wired" ]; then
-            make_release_dir rel-pro \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-squashfs-sysupgrade.itb" \
-              "bpi-r4-pro-8x.itb" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-nvme-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-sdcard.img.gz" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-emmc-img.bin" \
-              "openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-snand-img.bin"
-            [ -d "rel-pro" ] && cp rescue/bpi-r4-pro-rescue-sdcard.img.gz rel-pro/
-            [ -d "rel-pro" ] && cp rescue/bpi-r4-pro-snand-img.bin rel-pro/
-          fi
-
-          # SD rescue image into all R4 release dirs
-          for DIR in rel-4gb rel-4gb-poe rel-8gb rel-8gb-poe; do
-            [ -d "$DIR" ] && cp rescue/bpi-r4-rescue-sdcard.img.gz "$DIR/"
-          done
-
-          # UniFi variants = same firmware as 8gb wired + UniFi scripts
+          # The wired build also feeds the UniFi releases: the 8 GB wired
+          # firmware plus the UniFi setup scripts.
           if [ "$VARIANT" = "wired" ]; then
             cp -r rel-4gb     rel-4gb-wired
             cp -r rel-4gb-poe rel-4gb-poe-wired
@@ -184,19 +165,6 @@ jobs:
             cp -r rel-8gb-poe rel-8gb-poe-unifi
 
             for DIR in rel-8gb-unifi rel-8gb-poe-unifi; do
-              cp boards/bpi-r4/unifi/unifi-setup.sh             "$DIR/"
-              cp boards/bpi-r4/unifi/rc.local                   "$DIR/"
-              cp boards/bpi-r4/unifi/rc-network.sh              "$DIR/"
-              cp boards/bpi-r4/unifi/unifi-network-setup-8gb.sh "$DIR/unifi-network-setup.sh"
-            done
-          fi
-
-          # Pro wired + UniFi = same Pro firmware + UniFi scripts
-          if [ "$VARIANT" = "pro-wired" ]; then
-            cp -r rel-pro rel-pro-wired
-            cp -r rel-pro rel-pro-unifi
-
-            for DIR in rel-pro-unifi; do
               cp boards/bpi-r4/unifi/unifi-setup.sh             "$DIR/"
               cp boards/bpi-r4/unifi/rc.local                   "$DIR/"
               cp boards/bpi-r4/unifi/rc-network.sh              "$DIR/"
