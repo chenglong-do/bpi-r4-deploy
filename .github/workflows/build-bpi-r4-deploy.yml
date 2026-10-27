@@ -206,6 +206,23 @@ jobs:
 
       # Atomic release: delete old releases/tags only AFTER a successful build +
       # artifact prep, so a build failure leaves the existing releases intact.
+      # The U-Boot in the eMMC image boots the ITB configuration named in its
+      # bootconf; a wrong one (8 GB PoE carried the non-PoE one until 2026-10)
+      # leaves the board without a system. The FIP sits at 6656k.
+      - name: Check the U-Boot board configuration in the images
+        run: |
+          check() {
+            dd if="$1" bs=1k skip=6656 count=4096 2>/dev/null | strings | grep -qx "bootconf=$2" \
+              || { echo "$1: U-Boot does not boot $2"; exit 1; }
+            echo "$1: $2"
+          }
+          for DIR in rel-4gb rel-8gb; do
+            check "$(ls $DIR/*-emmc-img.bin)" config-mt7988a-bananapi-bpi-r4
+          done
+          for DIR in rel-4gb-poe rel-8gb-poe; do
+            check "$(ls $DIR/*-emmc-img.bin)" config-mt7988a-bananapi-bpi-r4-poe
+          done
+
       - name: Upload images as a workflow artifact
         uses: actions/upload-artifact@v4
         with:

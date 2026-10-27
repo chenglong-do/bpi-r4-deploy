@@ -166,7 +166,6 @@ mt7988a-bananapi-bpi-r4-nvme
   DEVICE_COMPAT_VERSION := 1.1
   DEVICE_COMPAT_MESSAGE := The non-switch ports were renamed to match the board/case labels
   KERNEL_LOADADDR := 0x46000000
-  BPI_R4_FIP_NAME := bananapi_bpi-r4
 
   ARTIFACTS := \
       emmc-img.bin \
@@ -236,6 +235,7 @@ define Device/bananapi_bpi-r4-8gb
   DEVICE_MODEL := BPi-R4 8GB
   DEVICE_DTS := mt7988a-bananapi-bpi-r4
   DEVICE_DTS_CONFIG := config-mt7988a-bananapi-bpi-r4
+  BPI_R4_FIP_NAME := bananapi_bpi-r4
   $(call Device/bananapi_bpi-r4-common-8gb)
   ARTIFACTS := emmc-img.bin nvme-img.bin sdcard.img.gz
   DEVICE_PACKAGES += docker dockerd docker-compose containerd runc
@@ -247,12 +247,13 @@ define Device/bananapi_bpi-r4-poe-8gb
   DEVICE_MODEL := BPi-R4 2.5GE 8GB
   DEVICE_DTS := mt7988a-bananapi-bpi-r4-2g5
   DEVICE_DTS_CONFIG := config-mt7988a-bananapi-bpi-r4-poe
+  # Set before the common block: its ARTIFACT/... := lines expand it there.
+  BPI_R4_FIP_NAME := bananapi_bpi-r4-poe
   $(call Device/bananapi_bpi-r4-common-8gb)
   DEVICE_PACKAGES += mt798x-2p5g-phy-firmware-internal kmod-mt798x-2p5g-phy
   DEVICE_PACKAGES += docker dockerd docker-compose containerd runc
   ARTIFACTS := emmc-img.bin nvme-img.bin sdcard.img.gz
   SUPPORTED_DEVICES += bananapi,bpi-r4-2g5
-  BPI_R4_FIP_NAME := bananapi_bpi-r4-poe
   UBINIZE_PARTS := fip=:$(STAGING_DIR_IMAGE)/mt7988_bananapi_bpi-r4-poe-snand-u-boot.fip
 endef
 TARGET_DEVICES += bananapi_bpi-r4-poe-8gb
@@ -273,6 +274,7 @@ define Device/bananapi_bpi-r4-nand-8gb
   DEVICE_MODEL := BPi-R4 NAND installer 8GB
   DEVICE_DTS := mt7988a-bananapi-bpi-r4
   DEVICE_DTS_CONFIG := config-mt7988a-bananapi-bpi-r4
+  BPI_R4_FIP_NAME := bananapi_bpi-r4
   $(call Device/bananapi_bpi-r4-common-8gb)
   ARTIFACTS := snand-img.bin
 endef
