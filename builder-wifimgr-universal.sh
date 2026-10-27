@@ -80,6 +80,8 @@ echo "CONFIG_BLK_DEV_NVME=y" >> target/linux/mediatek/filogic/config-6.12
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
+\cp ../my_files/etc-files/uci-defaults/97-distfeeds-drop-mtk-feed files/etc/uci-defaults/
+chmod +x files/etc/uci-defaults/97-distfeeds-drop-mtk-feed
 
 # LAN LED: mtk-led-fix programs mt7530 gphy port-LED registers at boot (link + tx/rx activity)
 mkdir -p files/etc/init.d
