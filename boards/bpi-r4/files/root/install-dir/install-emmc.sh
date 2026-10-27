@@ -29,10 +29,8 @@ printf "  5) 8GB standard (WiFi)\n"
 printf "  6) 8GB wired (no WiFi)\n"
 printf "  7) 8GB PoE (WiFi)\n"
 printf "  8) 8GB PoE wired (no WiFi)\n"
-printf "  9) 8GB wired UniFi\n"
-printf " 10) 8GB PoE wired UniFi\n"
 printf "\n"
-printf "Enter choice [1-10]: "
+printf "Enter choice [1-8]: "
 read VARIANT
 
 case "$VARIANT" in
@@ -44,8 +42,6 @@ case "$VARIANT" in
     6) GH_TAG="release-8gb-wired";           EMMC_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-emmc-img.bin" ;;
     7) GH_TAG="release-8gb-poe";             EMMC_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" ;;
     8) GH_TAG="release-8gb-poe-wired";       EMMC_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" ;;
-    9) GH_TAG="release-8gb-wired-unifi";     EMMC_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-emmc-img.bin" ;;
-   10) GH_TAG="release-8gb-poe-wired-unifi"; EMMC_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-emmc-img.bin" ;;
     *)
         printf "\n${RED}ERROR: Invalid choice!${NC}\n\n"
         exit 1

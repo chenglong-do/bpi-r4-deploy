@@ -28,10 +28,8 @@ printf "  5) 8GB standard (WiFi)\n"
 printf "  6) 8GB wired (no WiFi)\n"
 printf "  7) 8GB PoE (WiFi)\n"
 printf "  8) 8GB PoE wired (no WiFi)\n"
-printf "  9) 8GB wired UniFi\n"
-printf " 10) 8GB PoE wired UniFi\n"
 printf "\n"
-printf "Enter choice [1-10]: "
+printf "Enter choice [1-8]: "
 read VARIANT
 
 case "$VARIANT" in
@@ -43,8 +41,6 @@ case "$VARIANT" in
     6) GH_TAG="release-8gb-wired";           ITB_NAME="bpi-r4.itb";     IMG_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-nvme-img.bin" ;;
     7) GH_TAG="release-8gb-poe";             ITB_NAME="bpi-r4-poe.itb"; IMG_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" ;;
     8) GH_TAG="release-8gb-poe-wired";       ITB_NAME="bpi-r4-poe.itb"; IMG_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" ;;
-    9) GH_TAG="release-8gb-wired-unifi";     ITB_NAME="bpi-r4.itb";     IMG_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-8gb-nvme-img.bin" ;;
-   10) GH_TAG="release-8gb-poe-wired-unifi"; ITB_NAME="bpi-r4-poe.itb"; IMG_NAME="openwrt-mediatek-filogic-bananapi_bpi-r4-poe-8gb-nvme-img.bin" ;;
     *)
         printf "\n${RED}ERROR: Invalid choice!${NC}\n\n"
         exit 1
