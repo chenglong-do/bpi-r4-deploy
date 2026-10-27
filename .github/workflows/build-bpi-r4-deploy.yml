@@ -66,6 +66,12 @@ jobs:
             echo "RELEASE_TAGS=release-4gb-standard release-4gb-poe release-8gb-standard release-8gb-poe release-sdk" >> $GITHUB_ENV
           fi
 
+      - name: Runner hardware
+        run: |
+          # Build times differ by up to 2x between runs of the same tree;
+          # record what each runner was so slow runs can be told apart.
+          nproc; lscpu | grep -E 'Model name|^CPU\(s\)'; free -g | head -2
+
       - name: Free disk space on runner
         uses: jlumbroso/free-disk-space@main
         with:

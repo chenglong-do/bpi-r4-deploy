@@ -70,6 +70,12 @@ jobs:
             echo "RELEASE_TAGS=release-pro-8x-wired" >> $GITHUB_ENV
           fi
 
+      - name: Runner hardware
+        run: |
+          # Build times differ by up to 2x between runs of the same tree;
+          # record what each runner was so slow runs can be told apart.
+          nproc; lscpu | grep -E 'Model name|^CPU\(s\)'; free -g | head -2
+
       - name: Free disk space on runner
         uses: jlumbroso/free-disk-space@main
         with:
