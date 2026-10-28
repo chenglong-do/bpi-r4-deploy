@@ -256,28 +256,89 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish luci-app-wifimgr APK
-        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
+      # Everything the build produced, not only luci-app-wifimgr: the feed
+      # directories under bin/packages plus the target/kmod packages. They go
+      # out as one tarball (index files included, so every directory also
+      # works as a local apk repository) next to a plain file listing.
+      - name: Bundle all built APKs
+        if: github.event.inputs.publish == 'true'
         run: |
-          APK=$(ls openwrt/bin/packages/aarch64_cortex-a53/luci/luci-app-wifimgr-*.apk 2>/dev/null | head -1)
-          echo "APK_PATH=$APK" >> $GITHUB_ENV
-          echo "APK_NAME=$(basename $APK)" >> $GITHUB_ENV
+          OUT=apk-out
+          rm -rf "$OUT" && mkdir -p "$OUT"
 
-      - name: Publish wifimgr-latest release
-        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'standard')
+          for SRC in \
+            openwrt/bin/packages/aarch64_cortex-a53 \
+            openwrt/bin/targets/mediatek/filogic
+          do
+            [ -d "$SRC" ] || continue
+            rsync -a \
+              --include='*/' --include='*.apk' --include='*.adb' \
+              --exclude='*' "$SRC/" "$OUT/$(basename "$SRC")/"
+          done
+
+          COUNT=$(find "$OUT" -name '*.apk' | wc -l)
+          [ "$COUNT" -gt 0 ] || { echo "no APK found" >&2; exit 1; }
+          echo "APK_COUNT=$COUNT" >> $GITHUB_ENV
+
+          (cd "$OUT" && find . -name '*.apk' -printf '%P\n' | sort > apk-list.txt)
+          cp "$OUT/apk-list.txt" .
+
+          tar -czf apk-bundle-aarch64_cortex-a53.tar.gz -C "$OUT" .
+          sha256sum apk-bundle-aarch64_cortex-a53.tar.gz apk-list.txt > sha256sums
+          echo "$COUNT APK"
+          ls -lh apk-bundle-aarch64_cortex-a53.tar.gz
+
+      - name: Publish all APKs
+        if: github.event.inputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: wifimgr-latest
-          name: "luci-app-wifimgr (latest)"
+          tag_name: packages-${{ github.event.inputs.variant }}-latest
+          name: "All compiled APKs (${{ github.event.inputs.variant }}, latest)"
           body: |
-            Standalone APK for luci-app-wifimgr — install on any BPI-R4 running this firmware.
+            Every APK compiled by the `${{ github.event.inputs.variant }}` build:
+            ${{ env.APK_COUNT }} packages for aarch64_cortex-a53 (MediaTek filogic).
+
+            Download and unpack:
 
             ```
-            apk add --allow-untrusted --no-network /tmp/${{ env.APK_NAME }}
+            cd /tmp
+            wget -O apk-bundle.tar.gz https://github.com/${{ github.repository }}/releases/download/packages-${{ github.event.inputs.variant }}-latest/apk-bundle-aarch64_cortex-a53.tar.gz
+            mkdir -p /tmp/apk && tar -xzf apk-bundle.tar.gz -C /tmp/apk
             ```
+
+            What is inside (`packages/<feed>/` = feeds, `filogic/` = target and kmod packages):
+
+            ```
+            cat /tmp/apk/apk-list.txt
+            ```
+
+            Install a single package (its dependencies must already be installed):
+
+            ```
+            apk add --allow-untrusted --no-network /tmp/apk/packages/luci/luci-app-wifimgr-*.apk
+            ```
+
+            Install or replace every package of one feed directory:
+
+            ```
+            apk add --allow-untrusted --no-network --upgrade /tmp/apk/packages/luci/*.apk
+            ```
+
+            Use a directory as a local repository (`packages.adb` is included), so
+            dependencies are resolved from the bundle:
+
+            ```
+            apk add --allow-untrusted --repository /tmp/apk/packages/luci luci-app-wifimgr
+            ```
+
+            The bundle comes from this exact firmware build: kernel modules only fit
+            the kernel of this release. Check with `cat sha256sums` after the download.
 
             Built from commit: ${{ github.event.inputs.repo_commit || github.sha }}
-          files: ${{ env.APK_PATH }}
+          files: |
+            apk-bundle-aarch64_cortex-a53.tar.gz
+            apk-list.txt
+            sha256sums
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
