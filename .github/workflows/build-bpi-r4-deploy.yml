@@ -60,8 +60,10 @@ jobs:
         run: |
           VARIANT="${{ github.event.inputs.variant }}"
 
+          # wired.config only enables the 4 GB non-PoE profiles, so only that
+          # release is rebuilt. The other tags are left untouched.
           if [ "$VARIANT" = "wired" ]; then
-            echo "RELEASE_TAGS=release-4gb-wired release-4gb-poe-wired release-8gb-wired release-8gb-poe-wired release-8gb-wired-unifi release-8gb-poe-wired-unifi" >> $GITHUB_ENV
+            echo "RELEASE_TAGS=release-4gb-wired" >> $GITHUB_ENV
           else
             echo "RELEASE_TAGS=release-4gb-standard release-4gb-poe release-8gb-standard release-8gb-poe release-sdk" >> $GITHUB_ENV
           fi
@@ -109,6 +111,15 @@ jobs:
             local SDCARD="$5"
             local EMMC="$6"
             local SNAND="$7"
+
+            # Profiles that are not enabled in the variant config are not
+            # built; skip such a variant instead of failing the whole job.
+            for f in "$ITB_SRC" "$NVME" "$SDCARD" "$EMMC" "$SNAND"; do
+              if [ ! -f "${FILOGIC}/${f}" ]; then
+                echo "skip $DIR: ${f} was not built"
+                return 0
+              fi
+            done
 
             mkdir -p "$DIR"
             cp "${FILOGIC}/${ITB_SRC}"   "${DIR}/${ITB_DST}"
@@ -162,15 +173,18 @@ jobs:
           # The wired build also feeds the UniFi releases: the 8 GB wired
           # firmware plus the UniFi setup scripts.
           if [ "$VARIANT" = "wired" ]; then
-            cp -r rel-4gb     rel-4gb-wired
-            cp -r rel-4gb-poe rel-4gb-poe-wired
-            cp -r rel-8gb     rel-8gb-wired
-            cp -r rel-8gb-poe rel-8gb-poe-wired
+            for SRC in rel-4gb rel-4gb-poe rel-8gb rel-8gb-poe; do
+              [ -d "$SRC" ] || continue
+              cp -r "$SRC" "$SRC-wired"
+            done
 
-            cp -r rel-8gb     rel-8gb-unifi
-            cp -r rel-8gb-poe rel-8gb-poe-unifi
+            for SRC in rel-8gb rel-8gb-poe; do
+              [ -d "$SRC" ] || continue
+              cp -r "$SRC" "$SRC-unifi"
+            done
 
             for DIR in rel-8gb-unifi rel-8gb-poe-unifi; do
+              [ -d "$DIR" ] || continue
               cp boards/bpi-r4/unifi/unifi-setup.sh             "$DIR/"
               cp boards/bpi-r4/unifi/rc.local                   "$DIR/"
               cp boards/bpi-r4/unifi/rc-network.sh              "$DIR/"
@@ -191,9 +205,11 @@ jobs:
             echo "$1: $2"
           }
           for DIR in rel-4gb rel-8gb; do
+            [ -d "$DIR" ] || continue
             check "$(ls $DIR/*-emmc-img.bin)" config-mt7988a-bananapi-bpi-r4
           done
           for DIR in rel-4gb-poe rel-8gb-poe; do
+            [ -d "$DIR" ] || continue
             check "$(ls $DIR/*-emmc-img.bin)" config-mt7988a-bananapi-bpi-r4-poe
           done
           # NAND images: the U-Boot in the fip volume must match the board and
@@ -206,9 +222,11 @@ jobs:
             echo "$1: $2, boot_nvme"
           }
           for DIR in rel-4gb rel-8gb; do
+            [ -d "$DIR" ] || continue
             check_snand "$(ls $DIR/*-snand-img.bin)" config-mt7988a-bananapi-bpi-r4
           done
           for DIR in rel-4gb-poe rel-8gb-poe; do
+            [ -d "$DIR" ] || continue
             check_snand "$(ls $DIR/*-snand-img.bin)" config-mt7988a-bananapi-bpi-r4-poe
           done
 
