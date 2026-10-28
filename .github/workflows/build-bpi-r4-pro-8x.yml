@@ -1,3 +1,8 @@
+# Builds the BPI-R4 Pro 8X with ./build.sh bpi-r4-pro-8x <variant>.
+# The upstream revisions come from pins.conf; the dispatch inputs
+# openwrt_commit/mtk_commit override them for a trial build.
+# The images are always kept as a workflow artifact for 14 days; they replace
+# the public releases only when "publish" is ticked.
 name: Build BPI-R4 Pro 8X
 
 on:
@@ -16,13 +21,18 @@ on:
         required: false
         default: ''
       openwrt_commit:
-        description: 'OpenWrt commit hash (leave empty to use build-versions.env)'
+        description: 'OpenWrt commit hash (leave empty to use pins.conf)'
         required: false
         default: ''
       mtk_commit:
-        description: 'MTK SDK commit hash (leave empty to use build-versions.env)'
+        description: 'MTK SDK commit hash (leave empty to use pins.conf)'
         required: false
         default: ''
+      publish:
+        description: 'Publish to the release tags (unchecked: images only as a workflow artifact)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -35,12 +45,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Refuse to build from the default branch
-        if: github.ref_name == 'main'
-        run: |
-          echo "::error::Pro 8X is built from branch pro-8x-unifi, not main. In 'Run workflow' pick 'Use workflow from: pro-8x-unifi'."
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -48,7 +52,7 @@ jobs:
 
       - name: Load build versions
         run: |
-          cat build-versions.env >> $GITHUB_ENV
+          grep -v '^\s*#' pins.conf | grep -v '^\s*$' >> $GITHUB_ENV
           [ -n "${{ github.event.inputs.openwrt_commit }}" ] && echo "OPENWRT_COMMIT=${{ github.event.inputs.openwrt_commit }}" >> $GITHUB_ENV || true
           [ -n "${{ github.event.inputs.mtk_commit }}" ] && echo "MTK_COMMIT=${{ github.event.inputs.mtk_commit }}" >> $GITHUB_ENV || true
 
@@ -56,45 +60,21 @@ jobs:
         run: |
           VARIANT="${{ github.event.inputs.variant }}"
 
+          # Not BUILD_VARIANT: the OpenWrt make reads that from the environment
+          # and builds every package (U-Boot too) as that variant.
           if [ "$VARIANT" = "Pro-8X-wifi" ]; then
-            echo "BUILDER=./builder-pro-8x.sh" >> $GITHUB_ENV
+            echo "BOARD_VARIANT=standard" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-pro-8x-standard" >> $GITHUB_ENV
           else
-            echo "BUILDER=./builder-pro-8x-wired.sh" >> $GITHUB_ENV
+            echo "BOARD_VARIANT=wired" >> $GITHUB_ENV
             echo "RELEASE_TAGS=release-pro-8x-wired" >> $GITHUB_ENV
           fi
 
-      - name: Delete existing releases and tags
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const tags = process.env.RELEASE_TAGS.split(' ');
-
-            const releases = await github.rest.repos.listReleases({
-              owner,
-              repo,
-              per_page: 100
-            });
-
-            for (const tag of tags) {
-              for (const rel of releases.data) {
-                if (rel.tag_name === tag) {
-                  await github.rest.repos.deleteRelease({
-                    owner,
-                    repo,
-                    release_id: rel.id
-                  }).catch(e => console.log(`Failed to delete release ${rel.id}: ${e.message}`));
-                }
-              }
-              await github.rest.git.deleteRef({
-                owner,
-                repo,
-                ref: `tags/${tag}`
-              }).catch(e => console.log(`Failed to delete tag ${tag}: ${e.message}`));
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Runner hardware
+        run: |
+          # Build times differ by up to 2x between runs of the same tree;
+          # record what each runner was so slow runs can be told apart.
+          nproc; lscpu | grep -E 'Model name|^CPU\(s\)'; free -g | head -2
 
       - name: Free disk space on runner
         uses: jlumbroso/free-disk-space@main
@@ -115,30 +95,8 @@ jobs:
             gettext libncurses-dev libssl-dev python3-distutils python3-setuptools \
             rsync swig unzip zlib1g-dev file wget libelf-dev ccache git
 
-      - name: Restore MTK cache
-        id: cache-mtk
-        uses: actions/cache@v4
-        with:
-          path: repo-cache/mtk-openwrt-feeds.tar.gz
-          key: mtk-${{ env.MTK_COMMIT }}
-
-      - name: Clone and cache MTK feeds
-        if: steps.cache-mtk.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p repo-cache
-          git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-clone
-          cd mtk-clone && git checkout ${{ env.MTK_COMMIT }} && cd ..
-          tar -czf repo-cache/mtk-openwrt-feeds.tar.gz mtk-clone
-          rm -rf mtk-clone
-
-      - name: Run builder script
-        run: |
-          chmod +x ${{ env.BUILDER }}
-          ${{ env.BUILDER }}
-        env:
-          OPENWRT_COMMIT: ${{ env.OPENWRT_COMMIT }}
-          MTK_COMMIT: ${{ env.MTK_COMMIT }}
-          MTK_FEED_TARBALL: repo-cache/mtk-openwrt-feeds.tar.gz
+      - name: Build
+        run: ./build.sh bpi-r4-pro-8x "$BOARD_VARIANT"
 
       - name: Prepare release artifacts
         run: |
@@ -152,12 +110,10 @@ jobs:
           cp "${FILOGIC}/openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-emmc-img.bin"            rel-pro/
           cp "${FILOGIC}/openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-snand-img.bin"           rel-pro/
           cp "${FILOGIC}/config.buildinfo"                                                          rel-pro/
-          cp rescue/bpi-r4-pro-rescue-sdcard.img.gz                                               rel-pro/
-          cp rescue/bpi-r4-pro-snand-img.bin                                                      rel-pro/
-          cp unifi/unifi-setup.sh                                                                  rel-pro/
-          cp unifi/rc.local                                                                        rel-pro/
-          cp unifi/rc-network.sh                                                                   rel-pro/
-          cp unifi/unifi-network-setup-8gb.sh                                                      rel-pro/unifi-network-setup.sh
+          cp boards/bpi-r4-pro-8x/unifi/unifi-setup.sh                                                                  rel-pro/
+          cp boards/bpi-r4-pro-8x/unifi/rc.local                                                                        rel-pro/
+          cp boards/bpi-r4-pro-8x/unifi/rc-network.sh                                                                   rel-pro/
+          cp boards/bpi-r4-pro-8x/unifi/unifi-network-setup-8gb.sh                                                      rel-pro/unifi-network-setup.sh
           cd rel-pro
           sha256sum bpi-r4-pro-8x.itb \
             openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-nvme-img.bin \
@@ -166,10 +122,21 @@ jobs:
             openwrt-mediatek-filogic-bananapi_bpi-r4-pro-8x-snand-img.bin > sha256sums
           cd ..
 
+      - name: Upload images as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-bpi-r4-pro-8x-${{ github.event.inputs.variant }}
+          path: |
+            rel-pro/*.itb
+            rel-pro/openwrt-*-sdcard.img.gz
+            rel-pro/config.buildinfo
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publish release-pro-8x-standard
-        if: github.event.inputs.variant == 'Pro-8X-wifi'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'Pro-8X-wifi')
         run: |
-          gh release delete release-pro-8x-standard --yes 2>/dev/null || true
+          gh release delete release-pro-8x-standard --yes --cleanup-tag 2>/dev/null || true
           gh release create release-pro-8x-standard rel-pro/* \
             --title "BPI-R4 Pro 8X standard WiFi (latest)" \
             --notes "Variant: standard (WiFi + wifimgr) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
@@ -177,9 +144,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release-pro-8x-wired
-        if: github.event.inputs.variant == 'Pro-8X-wired'
+        if: github.event.inputs.publish == 'true' && (github.event.inputs.variant == 'Pro-8X-wired')
         run: |
-          gh release delete release-pro-8x-wired --yes 2>/dev/null || true
+          gh release delete release-pro-8x-wired --yes --cleanup-tag 2>/dev/null || true
           gh release create release-pro-8x-wired rel-pro/* \
             --title "BPI-R4 Pro 8X wired (latest)" \
             --notes "Variant: wired (no wifimgr) | RAM: 8GB | BPI-R4 Pro 8X | Commit: ${{ github.event.inputs.repo_commit || github.sha }}"
