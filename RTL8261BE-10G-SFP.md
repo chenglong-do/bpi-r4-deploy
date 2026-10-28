@@ -56,16 +56,22 @@ after a host link has been seen.
 
 ## Test status
 
-| Case | Old patches (probe + global re-read), 2026-10-28 | New patches (rev A fixup + flagged re-read) |
+BPI-R4 4GB, kernel 6.12.112 + MediaTek SDK patches, 2026-10-28. Old = our previous probe + global re-read (releases of
+2026-10-27); new = these two patches (tested by swapping `sfp.ko` / `mdio-i2c.ko` on the release image).
+
+| Case | Old patches | New patches |
 |------|------|------|
-| Cold start / power cycle, 1G partner | ✓ 1 re-read, link ~55–60 s | compiled (`-Werror`), HW test pending |
-| Warm reboot, 1G partner | ✓ 0 re-reads, link 30 s | pending |
-| Cable 1G → 10G and 10G → 1G at runtime | ✓ module re-presents itself, 0 re-reads | pending |
-| No cable | ✓ 0 re-reads | pending |
-| AQR113C module (rev 1), hot plug | ✓ PHY attached, 0 re-reads | pending (+ cold start) |
+| Rev A, cold start / power cycle, 1G partner | ✓ 1 re-read, link ~55–60 s | ✓ no PHY probe, 1 re-read, link 54 s |
+| Rev A, warm reboot, 1G partner | ✓ 0 re-reads, link 30 s | – |
+| Rev A, hot plug, 1G partner | – | ✓ module re-presents itself as `-T-I`, link 16 s after insertion, 0 re-reads |
+| Rev A, cable 1G → 10G at runtime | ✓ module re-presents itself, 0 re-reads | ✓ same, link 10G |
+| Rev A, cable 10G → 1G at runtime | ✓ module re-presents itself, 0 re-reads | ✓ link 1G (see Notes) |
+| Rev A, no cable | ✓ 0 re-reads | – |
+| AQR113C (rev 1) | ✓ hot plug, PHY attached | ✓ warm reboot and cold start, RollBall path, PHY ~2.5 s, 0 re-reads |
+| `OEM SFP+-T rev 1` (no quirk, no PHY) | ✓ 1G/10G (2026-10-26, with an earlier re-read version that re-read it 4× without cable) | ✓ 1G link, no cable: 0 re-reads |
 | Genuine slow RollBall module (e.g. FLYPRO SFP-10GT-CS-30M) | ✗ known to fail with the probe | not available here |
 
-10G throughput (BPI-R4 ↔ BPI-R4, Cat5e, iperf3 4 streams): **9.34 Gbits/sec**.
+0 RTNL assertions and 0 warnings in all runs. 10G throughput (BPI-R4 ↔ BPI-R4, Cat5e, iperf3 4 streams): **9.34 Gbits/sec**.
 
 ## Notes
 
