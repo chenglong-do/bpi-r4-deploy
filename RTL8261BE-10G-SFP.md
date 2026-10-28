@@ -1,176 +1,75 @@
-# RTL8261BE SFP-10G-T — 10G on BPI-R4 (OpenWrt)
+# RTL8261BE SFP-10G-T on BPI-R4 / BPI-R4 Pro 8X (OpenWrt)
 
 ## Result
 
-RTL8261BE copper SFP+ module (OEM SFP-10G-T) works at full **9.34 Gbits/sec** on BPI-R4
-with MT7988A SoC and OpenWrt. The fix is in the kernel sfp.c driver.
+The Realtek RTL8261BE based copper SFP+ module sold as **OEM SFP-10G-T, vendor revision "A"** works at
+10G (9.34 Gbits/sec in iperf3) and at 1G on BPI-R4 with OpenWrt 25.12 + the MediaTek SDK feed
+(kernel 6.12.112). Two kernel patches are needed, both in `common/patches/kernel/`.
 
 ---
 
-## Hardware
+## How the module behaves
 
-- **Module:** OEM SFP-10G-T (Realtek RTL8261BE-CG, 10G copper SFP+)
-- **Router:** Banana Pi BPI-R4 (MT7988A), SFP2 port (sfp-lan)
-- **Cable:** Cat5e/Cat6, short length (tested with 2m patch cable)
-- **Link partner:** second BPI-R4 with the same module
+- It has **no RollBall I2C-to-MDIO bridge** and the PHY is not reachable from the host at all.
+  Page 3 of the 0x51 EEPROM just echoes written bytes, so every RollBall command times out.
+- The host side is a SerDes that follows the copper link, and the module **changes its EEPROM identity**
+  with it:
+  - 10G link partner → `SFP-10G-T`, 10GBASE-R
+  - 1G link partner → `SFP-10G-T-I`, 1000BASE-X (still revision "A")
+- When the link partner speed changes at runtime (cable moved from a 1G to a 10G port or back),
+  the module drops MOD_DEF0 for ~2 s by itself, so the kernel sees a remove/insert and re-reads it.
+- At power-on it always starts as `SFP-10G-T` / 10GBASE-R. With a 1G link partner already connected
+  it does **not** re-present itself, so the host stays on 10GBASE-R without a link until the module
+  is re-read.
 
----
+## Problems without the patches
 
-## Problem
-
-The Linux kernel identified OEM SFP-10G-T as a ROLLBALL module and attempted
-to communicate via the I2C-to-MDIO bridge protocol:
-
-```
-sfp sfp2: module OEM SFP-10G-T rev A has been found in the quirk list
-sfp sfp2: probing phy device through the [MDIO_I2C_ROLLBALL] protocol
-sfp sfp2: no PHY detected, 24 tries left
-sfp sfp2: no PHY detected, 23 tries left
-...
-```
-
-Result: no link, module non-functional. The retry loop runs for ~8 minutes.
-
----
-
-## Root Cause
-
-RTL8261BE is a **pure Media Converter** — it has no I2C-to-MDIO PHY bridge and
-does not support the ROLLBALL protocol. It auto-switches SerDes speed based on
-the copper autoneg result:
-
-- 1G copper → 1000BASE-X SerDes
-- 2.5G copper → 2500BASE-X SerDes
-- 10G copper → 10GBASE-R SerDes
-
-The kernel must skip PHY probing entirely and let the MAC use the EEPROM-declared
-link mode (10gbase-r) directly.
-
-**Why ROLLBALL doesn't work:**
-The ROLLBALL protocol uses I2C address 0x51 (standard SFP A2h DOM), switches to
-page 3, writes CMD_READ, and polls CMD_DONE. RTL8261BE has no MDIO bridge — it
-never asserts CMD_DONE. The poll times out after 10 × 20ms = 200ms per attempt,
-and the kernel retries for minutes.
+1. The upstream quirk forces RollBall for every `OEM SFP-10G-T`. For revision "A" the kernel retries
+   the PHY probe 25 times at ~21 s per attempt (over nine minutes), holding `rtnl_lock` for each
+   attempt, before it falls back to inband mode.
+2. With a 1G link partner at boot there is no link at all (see above).
 
 ---
 
 ## Fix
 
-**File:** `common/patches/kernel/999-sfp-11-rtl8261be-mdio-none.patch`
+### `999-sfp-11-oem-sfp-10g-t-rev-a.patch`
 
-The fix extends `sfp_fixup_rollball_cc` with a probe that auto-detects whether
-a module has a real ROLLBALL I2C-to-MDIO bridge:
+Daniel Pawlik's fixup from openwrt/openwrt#22910 (commit `075ba3b965d4`, mediatek 6.18), rebased onto
+6.12: the `OEM SFP-10G-T` quirk gets its own fixup that, for vendor revision `"A   "`, sets
+`MDIO_I2C_NONE` (no PHY probe) and keeps the forced 10GBASE-T SFI extended compliance code. Other
+revisions (e.g. AQR113C based modules, revision "1" / "02") keep the RollBall fixup unchanged.
 
-1. Send ROLLBALL unlock password (0xffffffff) to A2h at SFP_VSL+3
-2. Switch to ROLLBALL MDIO page 3
-3. Issue CMD_READ
-4. Poll CMD_DONE for up to 200ms (10 × 20ms)
-5. **CMD_DONE received** → real ROLLBALL bridge → `MDIO_I2C_ROLLBALL` + extended_cc fix
-6. **Timeout** → no bridge (RTL8261BE) → `MDIO_I2C_NONE`
+This replaces our earlier `999-sfp-11-rtl8261be-mdio-none.patch` (a RollBall bridge probe, the same
+approach as upstream 8fe125892f40, which was reverted): its single 200 ms probe could switch slow
+genuine RollBall modules to `MDIO_I2C_NONE` for good.
 
-This replaces the previous approach of hardcoding a dedicated `sfp_fixup_rtl8261be`
-function, which would have broken other rollball modules sharing the same vendor/product
-strings. The new approach is safe for all modules matched by `sfp_fixup_rollball_cc`.
+### `999-sfp-22-rtl8261be-boot-1g-reprobe.patch`
 
-The industrial grade variant `SFP-10G-T-I` (same RTL8261BE chip) is also covered
-by adding a quirk entry.
-
-### Patch summary
-
-```diff
---- a/drivers/net/phy/sfp.c
-+++ b/drivers/net/phy/sfp.c
-
- /* Added before sfp_fixup_rollball_cc: */
-+#define SFP_ROLLBALL_PHY_ADDR   0x51
-+#define SFP_ROLLBALL_MDIO_PAGE  3
-+#define SFP_ROLLBALL_CMD_ADDR   0x80
-+#define SFP_ROLLBALL_CMD_READ   0x02
-+#define SFP_ROLLBALL_CMD_DONE   0x04
-+
-+static bool sfp_has_rollball_bridge(struct sfp *sfp)
-+{
-+    /* Send password, issue CMD_READ, poll CMD_DONE 10×20ms.
-+     * RTL8261BE has no bridge → timeout → returns false. */
-+    ...
-+}
-
- static void sfp_fixup_rollball_cc(struct sfp *sfp)
- {
--    sfp_fixup_rollball(sfp);
--    sfp->id.base.extended_cc = SFF8024_ECC_10GBASE_T_SFI;
-+    if (!sfp_has_rollball_bridge(sfp)) {
-+        sfp->mdio_protocol = MDIO_I2C_NONE;
-+        return;
-+    }
-+    sfp_fixup_rollball(sfp);
-+    sfp->id.base.extended_cc = SFF8024_ECC_10GBASE_T_SFI;
- }
-
- /* Quirk table: */
-+    SFP_QUIRK_F("OEM", "SFP-10G-T-I", sfp_fixup_rollball_cc),
-     SFP_QUIRK_F("OEM", "SFP-10G-T",   sfp_fixup_rollball_cc),
-```
-
----
-
-## Results
-
-### dmesg after applying the patch
-
-```
-sfp sfp2: module OEM SFP-10G-T rev A has been found in the quirk list
-sfp sfp2: probing phy device through the [MDIO_I2C_NONE] protocol
-mtk_soc_eth sfp-lan: requesting link mode inband/10gbase-r with support 00,00000000,00000800,00006400
-mtk_soc_eth sfp-lan: switched to inband/10gbase-r link mode
-sfp sfp2: SM: exit present:up:link_up
-mtk_soc_eth sfp-lan: Link is Up - 10Gbps/Full - flow control off
-```
-
-### iperf3 (4 parallel streams, 10 seconds, BPI-R4 ↔ BPI-R4 via RTL8261BE + Cat5e)
-
-```
-[ ID] Interval           Transfer     Bitrate         Retr
-[  5]   0.00-10.00  sec  2.50 GBytes  2.15 Gbits/sec  394            sender
-[  7]   0.00-10.00  sec  3.25 GBytes  2.79 Gbits/sec  299            sender
-[  9]   0.00-10.00  sec  2.33 GBytes  2.00 Gbits/sec   66            sender
-[ 11]   0.00-10.00  sec  2.79 GBytes  2.40 Gbits/sec  178            sender
-[SUM]   0.00-10.00  sec  10.9 GBytes  9.34 Gbits/sec  937             sender
-[SUM]   0.00-10.01  sec  10.9 GBytes  9.32 Gbits/sec                  receiver
-```
-
-**9.34 Gbits/sec — 93% of 10GbE line rate.**
+Only for modules whose quirk sets `reprobe_no_link` (revision "A" as `SFP-10G-T` and as
+`SFP-10G-T-I`), never for modules with a PHY: 15 s after the module reports signal, if the host
+netdev still has no carrier, the module is re-read (remove/insert under RTNL and the SFP state machine
+mutex), so the host picks up its current identity. At most 20 re-reads; the budget is renewed only
+after a host link has been seen.
 
 ---
 
 ## Test status
 
-| Case | Status | Notes |
-|------|--------|-------|
-| RTL8261BE → MDIO_I2C_NONE (probe timeout) | ✓ tested | Both routers, BPI-R4 MT7988A |
-| Real ROLLBALL → MDIO_I2C_ROLLBALL (CMD_DONE) | ✗ not tested | Need a rollball module |
+| Case | Old patches (probe + global re-read), 2026-10-28 | New patches (rev A fixup + flagged re-read) |
+|------|------|------|
+| Cold start / power cycle, 1G partner | ✓ 1 re-read, link ~55–60 s | compiled (`-Werror`), HW test pending |
+| Warm reboot, 1G partner | ✓ 0 re-reads, link 30 s | pending |
+| Cable 1G → 10G and 10G → 1G at runtime | ✓ module re-presents itself, 0 re-reads | pending |
+| No cable | ✓ 0 re-reads | pending |
+| AQR113C module (rev 1), hot plug | ✓ PHY attached, 0 re-reads | pending (+ cold start) |
+| Genuine slow RollBall module (e.g. FLYPRO SFP-10GT-CS-30M) | ✗ known to fail with the probe | not available here |
 
-**To test the positive case:** Turris RTROM01-RTSF-10G (available at Discomp.cz).
-Temporarily add `SFP_QUIRK_F("Turris", "RTSFP-10G", sfp_fixup_rollball_cc)` to
-trigger the probe on that module and verify CMD_DONE is received.
-
----
+10G throughput (BPI-R4 ↔ BPI-R4, Cat5e, iperf3 4 streams): **9.34 Gbits/sec**.
 
 ## Notes
 
-- **Multi-speed limitation (2.5G/1G):** With this patch the MAC is locked to
-  10gbase-r. If the copper link partner only supports 2.5G or 1G, the RTL8261BE
-  copper side will autoneg correctly, but the SerDes cannot switch speed without
-  MDIO access. The MAC will report "Link is Up - 10Gbps" but no traffic will pass.
-  This patch is suitable for **10G-only setups**. Full multi-speed support would
-  require MT7988A internal SerDes register access (confidential MTK documentation).
-
-- Patch is a candidate for upstream Linux kernel (`drivers/net/phy/sfp.c`),
-  pending test of the positive rollball case.
-
----
-
-## Date
-
-First fix (hardcoded): 2026-05-14
-Probe-based rewrite: 2026-05-14
+- Moving the cable from 10G to 1G at runtime makes the MediaTek ethernet driver dump the netsys
+  registers and the MT7996 Wi-Fi goes through an L1 SER (incl. WED reset) for ~1 s. Known, not
+  addressed; 1G → 10G does not do it.
+- BPI-R4 Pro 8X (Combo ports behind the mux) has not been tested with these patches.
