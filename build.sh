@@ -46,6 +46,8 @@ board_packages
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
+sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' package/feeds/packages/rust/Makefile
+
 board_after_feeds
 add_after_feeds
 

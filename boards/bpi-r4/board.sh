@@ -41,6 +41,7 @@ board_after_feeds() {
 board_config() {
 	# The OpenWrt SDK is per target, so it covers the Pro 8X too
 	# (published as release-sdk).
+	sed -i 's/192.168.1.1/192.168.168.1/g' package/base-files/files/bin/config_generate
 	[ "$VARIANT" = standard ] && echo "CONFIG_SDK=y" >> .config
 	return 0
 }

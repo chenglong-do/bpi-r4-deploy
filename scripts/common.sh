@@ -61,6 +61,13 @@ add_packages() {
 	\cp -r "$REPO/common/packages/luci-app-modemdata-main/luci-app-modemdata/" feeds/luci/applications
 	\cp -r "$REPO/common/packages/luci-app-lite-watchdog/" feeds/luci/applications
 	\cp -r "$REPO/common/packages/luci-app-sms-tool-js-main/luci-app-sms-tool-js/" feeds/luci/applications
+
+	git clone --depth=1 https://github.com/nikkinikki-org/OpenWrt-nikki feeds/luci/applications/OpenWrt-nikki
+  git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon feeds/luci/applications/luci-theme-argon
+  git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config feeds/luci/applications/luci-app-argon-config
+  git clone --depth=1 https://github.com/gdy666/luci-app-lucky.git feeds/luci/applications/lucky
+
+  git clone https://github.com/eamonxg/luci-theme-aurora.git feeds/luci/applications/luci-theme-aurora
 }
 
 # Files baked into the image: common/files, then the board's files on top.
