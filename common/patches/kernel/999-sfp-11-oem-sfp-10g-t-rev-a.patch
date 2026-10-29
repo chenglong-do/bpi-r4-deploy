@@ -1,0 +1,63 @@
+From: Daniel Pawlik <pawlik.dan@gmail.com>
+Subject: net: sfp: skip PHY probe on bridge-less OEM SFP-10G-T rev A
+
+"OEM SFP-10G-T" modules with vendor revision "A" have no RollBall
+I2C-to-MDIO bridge: page 3 of the 0x51 EEPROM passively echoes written
+bytes, so every RollBall command times out. A genuine RollBall module with
+the same vendor and part number (revision "02", AQR113C PHY) answers DONE
+on the first poll and its PHY attaches within ~2 seconds.
+Because the SFP-10G-T quirk forces RollBall, the kernel retries the PHY
+probe 25 times at ~21 seconds per attempt, i.e. for over nine minutes,
+before giving up and falling back to inband mode, holding rtnl_lock for
+each attempt.
+
+Give the SFP-10G-T entry its own fixup that skips the PHY probe for
+revision "A", while keeping the forced extended compliance code so that
+the module still links up in 10GBASE-R inband mode as before. Other
+revisions keep the RollBall fixup unchanged.
+
+Taken from openwrt/openwrt commit 075ba3b965d4 (proposed in
+openwrt/openwrt#22910, target/linux/mediatek/patches-6.18) and rebased
+onto 6.12 for bpi-r4-deploy. Replaces our earlier RollBall bridge probe
+(the reverted upstream 8fe125892f40), which could switch slow genuine
+RollBall modules to MDIO_I2C_NONE.
+
+Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
+---
+--- a/drivers/net/phy/sfp.c
++++ b/drivers/net/phy/sfp.c
+@@ -466,6 +466,25 @@
+ 	sfp->id.base.extended_cc = SFF8024_ECC_10GBASE_T_SFI;
+ }
+ 
++static void sfp_fixup_oem_10gt(struct sfp *sfp)
++{
++	/* Revision A of this module has no RollBall I2C-to-MDIO bridge: page
++	 * 3 of the 0x51 EEPROM just echoes written bytes, so every RollBall
++	 * command times out and the PHY probe keeps retrying for over nine
++	 * minutes, holding rtnl_lock for ~20 seconds per attempt. The PHY is
++	 * not accessible at all, so use the module without one.
++	 */
++	if (!memcmp(sfp->id.base.vendor_rev, "A   ", 4)) {
++		dev_info(sfp->dev,
++			 "rev A has no RollBall MDIO bridge, not probing for a PHY\n");
++		sfp->mdio_protocol = MDIO_I2C_NONE;
++		sfp->id.base.extended_cc = SFF8024_ECC_10GBASE_T_SFI;
++		return;
++	}
++
++	sfp_fixup_rollball_cc(sfp);
++}
++
+ static void sfp_quirk_2500basex(const struct sfp_eeprom_id *id,
+ 				struct sfp_module_caps *caps)
+ {
+@@ -607,7 +626,7 @@
+ 	SFP_QUIRK_S("TP-LINK", "TL-SM410U", sfp_quirk_oem_2_5g),
+ 
+ 	SFP_QUIRK_F("ETU", "ESP-T5-R", sfp_fixup_rollball_cc),
+-	SFP_QUIRK_F("OEM", "SFP-10G-T", sfp_fixup_rollball_cc),
++	SFP_QUIRK_F("OEM", "SFP-10G-T", sfp_fixup_oem_10gt),
+ 	SFP_QUIRK_S("OEM", "SFP-2.5G-T", sfp_quirk_oem_2_5g),
+ 	SFP_QUIRK_S("OEM", "SFP-2.5G-BX10-D", sfp_quirk_2500basex),
+ 	SFP_QUIRK_S("OEM", "SFP-2.5G-BX10-U", sfp_quirk_2500basex),

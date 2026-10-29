@@ -1,18 +1,19 @@
 --- a/drivers/net/phy/sfp.c
 +++ b/drivers/net/phy/sfp.c
-@@ -207,6 +207,19 @@
+@@ -207,6 +207,20 @@
  #define T_PROBE_RETRY_SLOW	msecs_to_jiffies(5000)
  #define R_PROBE_RETRY_SLOW	12
  
-+/* Some PHY-less copper SFP+ modules (e.g. RTL8261BE based) advertise
-+ * 10GBASE-T at power-on and only switch to 1000BASE-T once they have locked
-+ * a 1G link partner (or the other way round after a cable change). If the
-+ * host picked its interface from the old advertisement it stays on the wrong
-+ * one and the host link never comes up, although the module reports signal.
-+ * T_LINK_FAIL after the module reports signal we check the host link and, if
-+ * it is still down, re-read the module to pick up its current advertisement.
-+ * R_REPROBE bounds the number of re-reads; the budget is renewed only after
-+ * a host link has been seen.
++/* RTL8261BE based OEM SFP-10G-T modules (vendor revision "A", no PHY
++ * access) advertise 10GBASE-T at power-on and only switch to 1000BASE-X
++ * (identifying as SFP-10G-T-I) once they have locked a 1G link partner, or
++ * the other way round after a cable change. If the host picked its interface
++ * from the old advertisement it stays on the wrong one and the host link never
++ * comes up, although the module reports signal. For modules flagged by their
++ * quirk (reprobe_no_link), T_LINK_FAIL after the module reports signal we
++ * check the host link and, if it is still down, re-read the module to pick up
++ * its current advertisement. R_REPROBE bounds the number of re-reads; the
++ * budget is renewed only after a host link has been seen.
 + */
 +#define T_LINK_FAIL		msecs_to_jiffies(15000)
 +#define R_REPROBE		20
@@ -20,7 +21,7 @@
  /* SFP modules appear to always have their PHY configured for bus address
   * 0x56 (which with mdio-i2c, translates to a PHY address of 22).
   * RollBall SFPs access phy via SFP Enhanced Digital Diagnostic Interface
-@@ -262,6 +275,7 @@
+@@ -262,6 +276,7 @@
  
  	struct delayed_work poll;
  	struct delayed_work timeout;
@@ -28,28 +29,71 @@
  	struct mutex sm_mutex;			/* Protects state machine */
  	unsigned char sm_mod_state;
  	unsigned char sm_mod_tries_init;
-@@ -270,6 +284,9 @@
+@@ -270,6 +285,10 @@
  	unsigned short sm_state;
  	unsigned char sm_fault_retries;
  	unsigned char sm_phy_retries;
 +	unsigned char sm_reprobe_tries;
 +	bool sm_reprobing;
 +	bool sm_link_ok;
++	bool reprobe_no_link;
  
  	struct sfp_eeprom_id id;
  	unsigned int module_power_mW;
-@@ -1896,6 +1913,10 @@
+@@ -479,12 +498,23 @@
+ 			 "rev A has no RollBall MDIO bridge, not probing for a PHY\n");
+ 		sfp->mdio_protocol = MDIO_I2C_NONE;
+ 		sfp->id.base.extended_cc = SFF8024_ECC_10GBASE_T_SFI;
++		sfp->reprobe_no_link = true;
+ 		return;
+ 	}
+ 
+ 	sfp_fixup_rollball_cc(sfp);
+ }
+ 
++static void sfp_fixup_oem_10gt_i(struct sfp *sfp)
++{
++	/* The same rev A module after it has switched to 1000BASE-X for a 1G
++	 * link partner. Its EEPROM already describes it correctly; only watch
++	 * for a later cable change back to 10G.
++	 */
++	if (!memcmp(sfp->id.base.vendor_rev, "A   ", 4))
++		sfp->reprobe_no_link = true;
++}
++
+ static void sfp_quirk_2500basex(const struct sfp_eeprom_id *id,
+ 				struct sfp_module_caps *caps)
+ {
+@@ -626,6 +656,7 @@
+ 	SFP_QUIRK_S("TP-LINK", "TL-SM410U", sfp_quirk_oem_2_5g),
+ 
+ 	SFP_QUIRK_F("ETU", "ESP-T5-R", sfp_fixup_rollball_cc),
++	SFP_QUIRK_F("OEM", "SFP-10G-T-I", sfp_fixup_oem_10gt_i),
+ 	SFP_QUIRK_F("OEM", "SFP-10G-T", sfp_fixup_oem_10gt),
+ 	SFP_QUIRK_S("OEM", "SFP-2.5G-T", sfp_quirk_oem_2_5g),
+ 	SFP_QUIRK_S("OEM", "SFP-2.5G-BX10-D", sfp_quirk_2500basex),
+@@ -1983,6 +2014,12 @@
  {
  	sfp_link_up(sfp->sfp_bus);
  	sfp_sm_next(sfp, SFP_S_LINK_UP, 0);
 +
-+	/* A module with a PHY is handled by its PHY driver. */
-+	if (!sfp->mod_phy && sfp->sm_reprobe_tries)
++	/* Only for modules whose quirk asked for it; a module with a PHY is
++	 * handled by its PHY driver.
++	 */
++	if (sfp->reprobe_no_link && !sfp->mod_phy && sfp->sm_reprobe_tries)
 +		mod_delayed_work(system_wq, &sfp->reprobe, T_LINK_FAIL);
  }
  
  static void sfp_sm_link_down(struct sfp *sfp)
-@@ -2494,6 +2515,8 @@
+@@ -2518,6 +2555,7 @@
+ 	sfp->phy_t_retry = T_PHY_RETRY;
+ 
+ 	sfp->state_ignore_mask = 0;
++	sfp->reprobe_no_link = false;
+ 
+ 	if (sfp->id.base.extended_cc == SFF8024_ECC_10GBASE_T_SFI ||
+ 	    sfp->id.base.extended_cc == SFF8024_ECC_10GBASE_T_SR ||
+@@ -2596,6 +2634,8 @@
  
  	/* Handle remove event globally, it resets this state machine */
  	if (event == SFP_E_REMOVE) {
@@ -58,7 +102,7 @@
  		sfp_sm_mod_remove(sfp);
  		sfp_sm_mod_next(sfp, SFP_MOD_EMPTY, 0);
  		return;
-@@ -2515,6 +2538,10 @@
+@@ -2617,6 +2657,10 @@
  			sfp_sm_mod_next(sfp, SFP_MOD_PROBE, T_SERIAL);
  			sfp->sm_mod_tries_init = R_PROBE_RETRY_INIT;
  			sfp->sm_mod_tries = R_PROBE_RETRY_SLOW;
@@ -69,7 +113,7 @@
  		}
  		break;
  
-@@ -2749,9 +2776,18 @@
+@@ -2851,9 +2895,18 @@
  
  	case SFP_S_LINK_UP:
  		if (event == SFP_E_TX_FAULT) {
@@ -88,7 +132,7 @@
  			sfp_sm_link_down(sfp);
  			sfp_sm_next(sfp, SFP_S_WAIT_LOS, 0);
  		}
-@@ -2993,6 +3029,61 @@
+@@ -3095,6 +3148,61 @@
  		mod_delayed_work(system_wq, &sfp->poll, poll_jiffies);
  }
  
@@ -150,7 +194,7 @@
  static struct sfp *sfp_alloc(struct device *dev)
  {
  	struct sfp *sfp;
-@@ -3008,6 +3099,7 @@
+@@ -3110,6 +3218,7 @@
  	mutex_init(&sfp->st_mutex);
  	INIT_DELAYED_WORK(&sfp->poll, sfp_poll);
  	INIT_DELAYED_WORK(&sfp->timeout, sfp_timeout);
@@ -158,7 +202,7 @@
  
  	sfp_hwmon_init(sfp);
  
-@@ -3022,6 +3114,7 @@
+@@ -3124,6 +3233,7 @@
  
  	cancel_delayed_work_sync(&sfp->poll);
  	cancel_delayed_work_sync(&sfp->timeout);
@@ -166,7 +210,7 @@
  	if (sfp->i2c_mii) {
  		mdiobus_unregister(sfp->i2c_mii);
  		mdiobus_free(sfp->i2c_mii);
-@@ -3207,6 +3300,7 @@
+@@ -3309,6 +3419,7 @@
  
  	cancel_delayed_work_sync(&sfp->poll);
  	cancel_delayed_work_sync(&sfp->timeout);
